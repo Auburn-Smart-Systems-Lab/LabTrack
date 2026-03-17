@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="{% url 'kits:list' %}" class="hover:text-indigo-600">Kits</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-700">{{ kit.name }}</span>
+  </nav>
+
+  <!-- Kit Header -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-8">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold text-white">{{ kit.name }}</h1>
+              <p class="text-indigo-200 text-sm">
+                {{ kit.items.count }} item{{ kit.items.count|pluralize }} in this kit
+              </p>
+            </div>
+          </div>
+          {% if kit.description %}
+          <p class="text-indigo-100 text-sm max-w-2xl mt-3">{{ kit.description }}</p>
+          {% endif %}
+        </div>
+        <div class="flex gap-2">
+          {% if not kit.is_active %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
+            Inactive
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-4 text-xs text-indigo-200">
+        <span>Created by {{ kit.created_by.get_full_name|default:kit.created_by.username|default:"System" }}</span>
+        <span>•</span>
+        <span>{{ kit.created_at|date:"F j, Y" }}</span>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-wrap gap-3">
+      <a href="{% url 'reservations:create' %}?kit={{ kit.pk }}"
+         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Borrow Kit
+      </a>
+      {% if request.user.is_staff %}
+      <a href="{% url 'kits:edit' kit.pk %}"
+         class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+        Edit Kit
+      </a>
+      <a href="{% url 'kits:add_item' kit.pk %}"
+         class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add Item
+      </a>
+      <form method="post" action="{% url 'kits:delete' kit.pk %}"
+            onsubmit="return confirm('Delete this kit permanently?')" class="inline">
+        {% csrf_token %}
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Delete Kit
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Equipment Items -->
+    <div class="lg:col-span-2">
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 class="text-base font-semibold text-gray-900">Equipment Items</h2>
+          <span class="text-sm text-gray-500">{{ kit.items.count }} item{{ kit.items.count|pluralize }}</span>
+        </div>
+        <div class="divide-y divide-gray-100">
+          {% for kit_item in kit.items.all %}
+          <div class="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                </svg>
+              </div>
+              <div>
+                <a href="{% url 'equipment:detail' kit_item.equipment.pk %}"
+                   class="text-sm font-medium text-gray-900 hover:text-indigo-600">
+                  {{ kit_item.equipment.name }}
+                </a>
+                {% if kit_item.notes %}
+                <p class="text-xs text-gray-400 mt-0.5">{{ kit_item.notes }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                ×{{ kit_item.quantity }}
+              </span>
+              <!-- Equipment Status -->
+              {% if kit_item.equipment.status == 'AVAILABLE' %}
+                <span class="w-2 h-2 rounded-full bg-green-400" title="Available"></span>
+              {% elif kit_item.equipment.status == 'IN_USE' %}
+                <span class="w-2 h-2 rounded-full bg-yellow-400" title="In Use"></span>
+              {% else %}
+                <span class="w-2 h-2 rounded-full bg-red-400" title="{{ kit_item.equipment.get_status_display }}"></span>
+              {% endif %}
+              {% if request.user.is_staff %}
+              <form method="post" action="{% url 'kits:remove_item' kit.pk kit_item.pk %}"
+                    onsubmit="return confirm('Remove this item from the kit?')">
+                {% csrf_token %}
+                <button type="submit" class="text-xs text-red-500 hover:text-red-700">Remove</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="px-6 py-10 text-center text-sm text-gray-400">
+            No items in this kit yet.
+            {% if request.user.is_staff %}
+            <a href="{% url 'kits:add_item' kit.pk %}" class="text-indigo-600 hover:underline ml-1">Add one.</a>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar: Borrow History -->
+    <div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h2 class="text-base font-semibold text-gray-900">Borrow History</h2>
+        </div>
+        <div class="divide-y divide-gray-100">
+          {% for res in kit.reservations.all|slice:":8" %}
+          <div class="px-4 py-3">
+            <div class="flex items-start justify-between">
+              <div>
+                <p class="text-xs font-medium text-gray-800">
+                  {{ res.requester.get_full_name|default:res.requester.username }}
+                </p>
+                <p class="text-xs text-gray-400 mt-0.5">
+                  {{ res.start_date|date:"M d" }} – {{ res.end_date|date:"M d, Y" }}
+                </p>
+              </div>
+              {% if res.status == 'CONFIRMED' %}
+                <span class="text-xs text-green-600 font-medium">Active</span>
+              {% elif res.status == 'COMPLETED' %}
+                <span class="text-xs text-blue-600 font-medium">Done</span>
+              {% elif res.status == 'CANCELLED' %}
+                <span class="text-xs text-red-500 font-medium">Cancelled</span>
+              {% else %}
+                <span class="text-xs text-gray-500 font-medium">{{ res.get_status_display }}</span>
+              {% endif %}
+            </div>
+          </div>
+          {% empty %}
+          <div class="px-4 py-8 text-center text-sm text-gray-400">No borrow history yet.</div>
+          {% endfor %}
+        </div>
+        {% if kit.reservations.count > 8 %}
+        <div class="px-4 py-3 border-t border-gray-100 text-center">
+          <a href="{% url 'reservations:list' %}?kit={{ kit.pk }}"
+             class="text-xs text-indigo-600 hover:underline">
+            View all {{ kit.reservations.count }} reservations
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

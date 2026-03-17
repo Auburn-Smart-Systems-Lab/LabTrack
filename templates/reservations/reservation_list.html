@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Page Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Reservations</h1>
+      <p class="mt-1 text-sm text-gray-500">
+        {% if request.user.is_staff %}All lab reservations{% else %}Your reservations{% endif %}
+      </p>
+    </div>
+    <div class="flex gap-3">
+      <a href="{% url 'reservations:calendar' %}"
+         class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Calendar View
+      </a>
+      <a href="{% url 'reservations:create' %}"
+         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New Reservation
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+    <form method="get" class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+        <select name="status"
+                class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">All Statuses</option>
+          <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="CONFIRMED" {% if request.GET.status == 'CONFIRMED' %}selected{% endif %}>Confirmed</option>
+          <option value="CANCELLED" {% if request.GET.status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+          <option value="COMPLETED" {% if request.GET.status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+          <option value="EXPIRED" {% if request.GET.status == 'EXPIRED' %}selected{% endif %}>Expired</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">From</label>
+        <input type="date" name="from"
+               value="{{ request.GET.from }}"
+               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">To</label>
+        <input type="date" name="to"
+               value="{{ request.GET.to }}"
+               class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      </div>
+      <button type="submit"
+              class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+        Filter
+      </button>
+      <a href="{% url 'reservations:list' %}"
+         class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition">
+        Clear
+      </a>
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            {% if request.user.is_staff %}
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+            {% endif %}
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Start Date</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">End Date</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
+            <th class="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-100">
+          {% for reservation in reservations %}
+          <tr class="hover:bg-gray-50 transition">
+            {% if request.user.is_staff %}
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center gap-2">
+                <div class="h-7 w-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-700">
+                  {{ reservation.requester.get_initials|default:reservation.requester.username|slice:":1"|upper }}
+                </div>
+                <span class="text-sm text-gray-900">{{ reservation.requester.get_full_name|default:reservation.requester.username }}</span>
+              </div>
+            </td>
+            {% endif %}
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-900">
+                {% if reservation.equipment %}
+                  {{ reservation.equipment.name }}
+                  <span class="text-xs text-gray-400 ml-1">Equipment</span>
+                {% elif reservation.kit %}
+                  {{ reservation.kit.name }}
+                  <span class="text-xs text-gray-400 ml-1">Kit</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+              {{ reservation.start_date|date:"M d, Y" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+              {{ reservation.end_date|date:"M d, Y" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              {% if reservation.status == 'CONFIRMED' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Confirmed</span>
+              {% elif reservation.status == 'PENDING' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pending</span>
+              {% elif reservation.status == 'CANCELLED' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Cancelled</span>
+              {% elif reservation.status == 'COMPLETED' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Completed</span>
+              {% elif reservation.status == 'EXPIRED' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Expired</span>
+              {% endif %}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ reservation.created_at|date:"M d, Y" }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+              <a href="{% url 'reservations:detail' reservation.pk %}"
+                 class="text-indigo-600 hover:text-indigo-800 font-medium">View</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{% if request.user.is_staff %}7{% else %}6{% endif %}"
+                class="px-6 py-12 text-center text-sm text-gray-400">
+              <svg class="mx-auto h-10 w-10 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              No reservations found.
+              <a href="{% url 'reservations:create' %}" class="text-indigo-600 hover:underline ml-1">Make one now.</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+      <p class="text-sm text-gray-600">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+      </p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}"
+             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100">Previous</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}"
+             class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100">Next</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

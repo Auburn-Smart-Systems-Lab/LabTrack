@@ -1,0 +1,248 @@
+"""Views for the projects app."""
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.activity.utils import log_activity
+from apps.projects.forms import ProjectForm, ProjectMemberForm
+from apps.projects.models import Project, ProjectMember
+
+
+def _is_admin(user):
+    return user.is_authenticated and user.role == 'ADMIN'
+
+
+@login_required
+def project_list_view(request):
+    """List projects.
+
+    Admins see all projects. Members see projects they are a part of (either as
+    lead or as a project member).
+    """
+    if _is_admin(request.user):
+        projects = Project.objects.select_related('lead').prefetch_related('project_members')
+    else:
+        projects = Project.objects.filter(
+            project_members__user=request.user
+        ).select_related('lead').prefetch_related('project_members').distinct()
+
+    return render(request, 'projects/project_list.html', {'projects': projects})
+
+
+@login_required
+def project_detail_view(request, pk):
+    """Show project details including members and linked borrow requests."""
+    project = get_object_or_404(
+        Project.objects.select_related('lead').prefetch_related(
+            'project_members__user',
+        ),
+        pk=pk,
+    )
+
+    # Members can only view projects they belong to.
+    if not _is_admin(request.user):
+        is_member = project.project_members.filter(user=request.user).exists()
+        if not is_member:
+            messages.error(request, 'You do not have permission to view this project.')
+            return redirect('projects:list')
+
+    borrow_requests = project.borrow_requests.select_related(
+        'borrower', 'equipment', 'kit'
+    ).order_by('-requested_date')
+
+    return render(request, 'projects/project_detail.html', {
+        'project': project,
+        'borrow_requests': borrow_requests,
+    })
+
+
+@login_required
+def project_create_view(request):
+    """Create a new project."""
+    if request.method == 'POST':
+        form = ProjectForm(request.POST)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.lead = request.user
+            project.save()
+
+            # Automatically add the creator as a LEAD member.
+            ProjectMember.objects.create(
+                project=project,
+                user=request.user,
+                role='LEAD',
+            )
+
+            log_activity(
+                actor=request.user,
+                action='PROJECT_CREATED',
+                description=f'{request.user.username} created project "{project.name}"',
+                content_type_label='project',
+                object_id=project.pk,
+                object_repr=str(project),
+                request=request,
+            )
+
+            messages.success(request, f'Project "{project.name}" created successfully.')
+            return redirect('projects:detail', pk=project.pk)
+    else:
+        form = ProjectForm()
+
+    return render(request, 'projects/project_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+def project_edit_view(request, pk):
+    """Edit a project (project lead or admin only)."""
+    project = get_object_or_404(Project, pk=pk)
+
+    is_lead = project.lead == request.user or project.project_members.filter(
+        user=request.user, role='LEAD'
+    ).exists()
+
+    if not _is_admin(request.user) and not is_lead:
+        messages.error(request, 'Only the project lead or an admin can edit this project.')
+        return redirect('projects:detail', pk=project.pk)
+
+    if request.method == 'POST':
+        form = ProjectForm(request.POST, instance=project)
+        if form.is_valid():
+            form.save()
+
+            log_activity(
+                actor=request.user,
+                action='PROJECT_UPDATED',
+                description=f'{request.user.username} updated project "{project.name}"',
+                content_type_label='project',
+                object_id=project.pk,
+                object_repr=str(project),
+                request=request,
+            )
+
+            messages.success(request, f'Project "{project.name}" updated successfully.')
+            return redirect('projects:detail', pk=project.pk)
+    else:
+        form = ProjectForm(instance=project)
+
+    return render(request, 'projects/project_form.html', {
+        'form': form,
+        'project': project,
+        'action': 'Edit',
+    })
+
+
+@login_required
+def project_delete_view(request, pk):
+    """Delete a project (admin only)."""
+    if not _is_admin(request.user):
+        messages.error(request, 'Only admins can delete projects.')
+        return redirect('projects:list')
+
+    project = get_object_or_404(Project, pk=pk)
+
+    if request.method == 'POST':
+        project_name = project.name
+        project.delete()
+        messages.success(request, f'Project "{project_name}" deleted.')
+        return redirect('projects:list')
+
+    return render(request, 'projects/project_confirm_delete.html', {'project': project})
+
+
+@login_required
+def project_member_add_view(request, pk):
+    """Add a member to a project (project lead or admin)."""
+    project = get_object_or_404(Project, pk=pk)
+
+    is_lead = project.lead == request.user or project.project_members.filter(
+        user=request.user, role='LEAD'
+    ).exists()
+
+    if not _is_admin(request.user) and not is_lead:
+        messages.error(request, 'Only the project lead or an admin can add members.')
+        return redirect('projects:detail', pk=project.pk)
+
+    if request.method == 'POST':
+        form = ProjectMemberForm(request.POST, project=project)
+        if form.is_valid():
+            membership = form.save(commit=False)
+            membership.project = project
+            membership.save()
+
+            log_activity(
+                actor=request.user,
+                action='PROJECT_UPDATED',
+                description=(
+                    f'{request.user.username} added {membership.user.username} '
+                    f'to project "{project.name}" as {membership.get_role_display()}'
+                ),
+                content_type_label='project',
+                object_id=project.pk,
+                object_repr=str(project),
+                request=request,
+            )
+
+            messages.success(
+                request,
+                f'{membership.user.username} added to project "{project.name}".'
+            )
+            return redirect('projects:detail', pk=project.pk)
+    else:
+        form = ProjectMemberForm(project=project)
+
+    return render(request, 'projects/project_member_form.html', {
+        'form': form,
+        'project': project,
+    })
+
+
+@login_required
+def project_member_remove_view(request, pk, mem_pk):
+    """Remove a member from a project (project lead or admin)."""
+    project = get_object_or_404(Project, pk=pk)
+    membership = get_object_or_404(ProjectMember, pk=mem_pk, project=project)
+
+    is_lead = project.lead == request.user or project.project_members.filter(
+        user=request.user, role='LEAD'
+    ).exists()
+
+    if not _is_admin(request.user) and not is_lead:
+        messages.error(request, 'Only the project lead or an admin can remove members.')
+        return redirect('projects:detail', pk=project.pk)
+
+    # Prevent removing the sole lead.
+    if membership.role == 'LEAD':
+        lead_count = project.project_members.filter(role='LEAD').count()
+        if lead_count <= 1:
+            messages.error(
+                request,
+                'Cannot remove the only lead from the project. '
+                'Assign another lead first.'
+            )
+            return redirect('projects:detail', pk=project.pk)
+
+    if request.method == 'POST':
+        username = membership.user.username
+        membership.delete()
+
+        log_activity(
+            actor=request.user,
+            action='PROJECT_UPDATED',
+            description=(
+                f'{request.user.username} removed {username} '
+                f'from project "{project.name}"'
+            ),
+            content_type_label='project',
+            object_id=project.pk,
+            object_repr=str(project),
+            request=request,
+        )
+
+        messages.success(request, f'{username} removed from project "{project.name}".')
+        return redirect('projects:detail', pk=project.pk)
+
+    return render(request, 'projects/project_member_confirm_remove.html', {
+        'project': project,
+        'membership': membership,
+    })

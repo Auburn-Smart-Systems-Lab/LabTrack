@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management{% endblock %}
+
+{% block page_title %}User Management{% endblock %}
+
+{% block breadcrumbs %}
+{% include 'partials/_breadcrumbs.html' with breadcrumbs=breadcrumbs %}
+{% endblock %}
+
+{% block content %}
+
+<!-- ====== Page header ====== -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+  <div>
+    <h2 class="text-xl font-bold text-slate-800">All Users</h2>
+    <p class="text-sm text-slate-500 mt-0.5">
+      Manage lab members and their access roles.
+    </p>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
+      {{ page_obj.paginator.count }} user{{ page_obj.paginator.count|pluralize }}
+    </span>
+  </div>
+</div>
+
+<!-- ====== Filter + Search bar ====== -->
+<div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4 mb-6">
+  <form method="get" action="" class="flex flex-col sm:flex-row gap-3">
+
+    <!-- Search input -->
+    <div class="relative flex-1">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+      <input type="text"
+             name="q"
+             value="{{ request.GET.q|default:'' }}"
+             placeholder="Search by name, email or username..."
+             class="block w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400
+                    focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+    </div>
+
+    <!-- Role filter -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}"
+         class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+           {% if not request.GET.role %}bg-brand-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        All
+      </a>
+      <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}role=MEMBER"
+         class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+           {% if request.GET.role == 'MEMBER' %}bg-blue-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        Members
+      </a>
+      <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}role=ADMIN"
+         class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+           {% if request.GET.role == 'ADMIN' %}bg-purple-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        Admins
+      </a>
+    </div>
+
+    <!-- Status filter -->
+    <div class="flex items-center gap-2">
+      <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.role %}role={{ request.GET.role }}&{% endif %}status=active"
+         class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+           {% if request.GET.status == 'active' %}bg-green-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        Active
+      </a>
+      <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.role %}role={{ request.GET.role }}&{% endif %}status=inactive"
+         class="px-3 py-2 rounded-lg text-sm font-medium transition-colors
+           {% if request.GET.status == 'inactive' %}bg-red-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        Inactive
+      </a>
+    </div>
+
+    <button type="submit"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      Search
+    </button>
+  </form>
+</div>
+
+<!-- ====== Users Table ====== -->
+<div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+
+  {% if page_obj.object_list %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="bg-slate-50 border-b border-slate-200">
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">User</th>
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Email</th>
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Role</th>
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Joined</th>
+          <th class="px-6 py-3.5 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for member in page_obj %}
+        <tr class="hover:bg-slate-50 transition-colors">
+
+          <!-- Avatar + name -->
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              {% if member.profile.avatar %}
+                <img src="{{ member.profile.avatar.url }}"
+                     alt="{{ member.full_name }}"
+                     class="w-9 h-9 rounded-full object-cover flex-shrink-0 ring-1 ring-slate-200" />
+              {% else %}
+                <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center
+                  {% if member.is_admin %}bg-purple-600{% else %}bg-brand-600{% endif %}">
+                  <span class="text-white text-xs font-bold">
+                    {{ member.first_name|first|upper }}{{ member.last_name|first|upper }}
+                  </span>
+                </div>
+              {% endif %}
+              <div class="min-w-0">
+                <p class="font-semibold text-slate-800 leading-tight truncate">{{ member.full_name }}</p>
+                <p class="text-xs text-slate-500 truncate">@{{ member.username }}</p>
+              </div>
+            </div>
+          </td>
+
+          <!-- Email -->
+          <td class="px-6 py-4 text-slate-600 truncate max-w-[200px]">
+            {{ member.email }}
+          </td>
+
+          <!-- Role badge -->
+          <td class="px-6 py-4">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+              {% if member.is_admin %}bg-purple-100 text-purple-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+              {{ member.get_role_display }}
+            </span>
+          </td>
+
+          <!-- Status badge -->
+          <td class="px-6 py-4">
+            {% if member.is_active %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+              Active
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
+              Inactive
+            </span>
+            {% endif %}
+          </td>
+
+          <!-- Joined date -->
+          <td class="px-6 py-4 text-slate-500 text-xs whitespace-nowrap">
+            {{ member.date_joined|date:"N j, Y" }}
+          </td>
+
+          <!-- Actions -->
+          <td class="px-6 py-4">
+            <div class="flex items-center justify-end gap-2">
+              <a href="{% url 'accounts:profile_view' member.pk %}"
+                 class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
+                 title="View profile">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                View
+              </a>
+
+              <!-- Change role button (opens inline form / modal) -->
+              {% if request.user != member %}
+              <div class="relative" id="role-menu-{{ member.pk }}">
+                <button type="button"
+                        onclick="toggleRoleMenu({{ member.pk }})"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold rounded-lg transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                  </svg>
+                  Role
+                </button>
+
+                <!-- Role dropdown -->
+                <div id="role-dropdown-{{ member.pk }}"
+                     class="hidden absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg ring-1 ring-black/5 py-1 z-10">
+                  <form method="post" action="{% url 'accounts:change_role' member.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="role" value="MEMBER" />
+                    <button type="submit"
+                            class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left
+                              {% if member.role == 'MEMBER' %}font-semibold text-blue-700 bg-blue-50{% endif %}">
+                      <span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span>
+                      Member
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'accounts:change_role' member.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="role" value="ADMIN" />
+                    <button type="submit"
+                            class="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 text-left
+                              {% if member.role == 'ADMIN' %}font-semibold text-purple-700 bg-purple-50{% endif %}">
+                      <span class="w-2 h-2 rounded-full bg-purple-500 inline-block"></span>
+                      Admin
+                    </button>
+                  </form>
+                  <div class="border-t border-slate-100 my-1"></div>
+                  <form method="post" action="{% url 'accounts:toggle_active' member.pk %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="w-full flex items-center gap-2 px-4 py-2 text-sm text-left
+                              {% if member.is_active %}text-red-600 hover:bg-red-50{% else %}text-green-700 hover:bg-green-50{% endif %}">
+                      {% if member.is_active %}
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                      </svg>
+                      Deactivate
+                      {% else %}
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      Activate
+                      {% endif %}
+                    </button>
+                  </form>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-16 text-center">
+    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+      <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
+    </div>
+    <h3 class="text-base font-semibold text-slate-700 mb-1">No users found</h3>
+    <p class="text-sm text-slate-400 max-w-xs">
+      No users match your current filters.
+      <a href="{% url 'accounts:user_list' %}" class="text-brand-600 hover:underline">Clear filters</a>
+    </p>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ====== Pagination ====== -->
+{% include 'partials/_pagination.html' with page_obj=page_obj %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function toggleRoleMenu(userId) {
+    const dropdown = document.getElementById('role-dropdown-' + userId);
+    // Close all other dropdowns first
+    document.querySelectorAll('[id^="role-dropdown-"]').forEach(function(d) {
+      if (d.id !== 'role-dropdown-' + userId) d.classList.add('hidden');
+    });
+    dropdown.classList.toggle('hidden');
+  }
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('[id^="role-menu-"]')) {
+      document.querySelectorAll('[id^="role-dropdown-"]').forEach(function(d) {
+        d.classList.add('hidden');
+      });
+    }
+  });
+</script>
+{% endblock %}

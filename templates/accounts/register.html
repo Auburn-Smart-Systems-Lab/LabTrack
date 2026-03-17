@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account | SSELabTrack</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
+              300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1',
+              600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81',
+            }
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="min-h-full bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 font-sans antialiased">
+
+<div class="flex flex-col items-center justify-center px-4 py-12">
+
+  <!-- Branding -->
+  <div class="flex flex-col items-center mb-8">
+    <div class="w-16 h-16 rounded-2xl bg-brand-600 flex items-center justify-center shadow-xl mb-4">
+      <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+      </svg>
+    </div>
+    <h1 class="text-2xl font-extrabold text-white tracking-tight">SSELabTrack</h1>
+    <p class="text-slate-400 text-sm mt-1">Software &amp; Systems Engineering Lab</p>
+  </div>
+
+  <!-- Card -->
+  <div class="w-full max-w-lg">
+    <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden">
+
+      <!-- Card header -->
+      <div class="px-8 pt-8 pb-6 border-b border-slate-100">
+        <h2 class="text-xl font-bold text-slate-800">Create your account</h2>
+        <p class="text-sm text-slate-500 mt-1">Join SSELabTrack to access lab resources</p>
+      </div>
+
+      <!-- Flash / form errors -->
+      {% if form.non_field_errors %}
+      <div class="px-8 pt-4">
+        <div class="flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+          <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            {% for error in form.non_field_errors %}
+            <p class="text-sm text-red-700">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Form -->
+      <form method="post" action="{% url 'accounts:register' %}" class="px-8 pt-6 pb-8 space-y-5">
+        {% csrf_token %}
+
+        <!-- First name / Last name row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          <div>
+            <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+              First Name
+            </label>
+            <input type="text"
+                   id="{{ form.first_name.id_for_label }}"
+                   name="{{ form.first_name.html_name }}"
+                   value="{{ form.first_name.value|default:'' }}"
+                   placeholder="Alice"
+                   autocomplete="given-name"
+                   class="block w-full px-3 py-2.5 border
+                     {% if form.first_name.errors %}border-red-400 bg-red-50{% else %}border-slate-300{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+            {% for error in form.first_name.errors %}
+            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <div>
+            <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+              Last Name
+            </label>
+            <input type="text"
+                   id="{{ form.last_name.id_for_label }}"
+                   name="{{ form.last_name.html_name }}"
+                   value="{{ form.last_name.value|default:'' }}"
+                   placeholder="Smith"
+                   autocomplete="family-name"
+                   class="block w-full px-3 py-2.5 border
+                     {% if form.last_name.errors %}border-red-400 bg-red-50{% else %}border-slate-300{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+            {% for error in form.last_name.errors %}
+            <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Username -->
+        <div>
+          <label for="{{ form.username.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            Username
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm select-none pointer-events-none">@</span>
+            <input type="text"
+                   id="{{ form.username.id_for_label }}"
+                   name="{{ form.username.html_name }}"
+                   value="{{ form.username.value|default:'' }}"
+                   placeholder="alicesmith"
+                   autocomplete="username"
+                   class="block w-full pl-7 pr-4 py-2.5 border
+                     {% if form.username.errors %}border-red-400 bg-red-50{% else %}border-slate-300{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+          </div>
+          {% for error in form.username.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label for="{{ form.email.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            Email Address
+          </label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+              </svg>
+            </div>
+            <input type="email"
+                   id="{{ form.email.id_for_label }}"
+                   name="{{ form.email.html_name }}"
+                   value="{{ form.email.value|default:'' }}"
+                   placeholder="alice@university.edu"
+                   autocomplete="email"
+                   class="block w-full pl-9 pr-4 py-2.5 border
+                     {% if form.email.errors %}border-red-400 bg-red-50{% else %}border-slate-300{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+          </div>
+          {% for error in form.email.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label for="{{ form.password1.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            Password
+          </label>
+          <div class="relative">
+            <input type="password"
+                   id="{{ form.password1.id_for_label }}"
+                   name="{{ form.password1.html_name }}"
+                   placeholder="Create a strong password"
+                   autocomplete="new-password"
+                   oninput="checkPasswordStrength(this.value)"
+                   class="block w-full px-3 py-2.5 border
+                     {% if form.password1.errors %}border-red-400 bg-red-50{% else %}border-slate-300{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+          </div>
+          {% for error in form.password1.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+
+          <!-- Password strength meter -->
+          <div class="mt-2" id="strength-container" style="display:none">
+            <div class="flex gap-1 mb-1">
+              <div id="s1" class="h-1.5 flex-1 rounded-full bg-slate-200 transition-colors"></div>
+              <div id="s2" class="h-1.5 flex-1 rounded-full bg-slate-200 transition-colors"></div>
+              <div id="s3" class="h-1.5 flex-1 rounded-full bg-slate-200 transition-colors"></div>
+              <div id="s4" class="h-1.5 flex-1 rounded-full bg-slate-200 transition-colors"></div>
+            </div>
+            <p id="strength-label" class="text-xs text-slate-500"></p>
+          </div>
+          <p class="mt-1.5 text-xs text-slate-400">
+            Min. 8 characters. Include uppercase, numbers, and symbols for a stronger password.
+          </p>
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+          <label for="{{ form.password2.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            Confirm Password
+          </label>
+          <input type="password"
+                 id="{{ form.password2.id_for_label }}"
+                 name="{{ form.password2.html_name }}"
+                 placeholder="Repeat your password"
+                 autocomplete="new-password"
+                 class="block w-full px-3 py-2.5 border
+                   {% if form.password2.errors %}border-red-400 bg-red-50{% else %}border-slate-300{% endif %}
+                   rounded-lg text-sm text-slate-800 placeholder-slate-400
+                   focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition" />
+          {% for error in form.password2.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Submit -->
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2 py-3 px-6 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+          </svg>
+          Create Account
+        </button>
+
+        <!-- Login link -->
+        <p class="text-center text-sm text-slate-500">
+          Already have an account?
+          <a href="{% url 'accounts:login' %}"
+             class="font-semibold text-brand-600 hover:text-brand-700 hover:underline">
+            Sign in
+          </a>
+        </p>
+
+      </form>
+    </div>
+
+    <!-- Footer note -->
+    <p class="text-center text-xs text-slate-500 mt-6">
+      &copy; {% now "Y" %} SSELabTrack &mdash; Software &amp; Systems Engineering Lab
+    </p>
+  </div>
+</div>
+
+<script>
+  function checkPasswordStrength(value) {
+    const container = document.getElementById('strength-container');
+    const label = document.getElementById('strength-label');
+    const bars = [
+      document.getElementById('s1'),
+      document.getElementById('s2'),
+      document.getElementById('s3'),
+      document.getElementById('s4'),
+    ];
+
+    if (!value) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+
+    let score = 0;
+    if (value.length >= 8) score++;
+    if (/[A-Z]/.test(value)) score++;
+    if (/[0-9]/.test(value)) score++;
+    if (/[^A-Za-z0-9]/.test(value)) score++;
+
+    const configs = [
+      { color: 'bg-red-500',    text: 'Weak',      textColor: 'text-red-600' },
+      { color: 'bg-orange-400', text: 'Fair',      textColor: 'text-orange-600' },
+      { color: 'bg-yellow-400', text: 'Good',      textColor: 'text-yellow-600' },
+      { color: 'bg-green-500',  text: 'Strong',    textColor: 'text-green-600' },
+    ];
+
+    bars.forEach((bar, i) => {
+      if (i < score) {
+        bar.className = `h-1.5 flex-1 rounded-full ${configs[score - 1].color} transition-colors`;
+      } else {
+        bar.className = 'h-1.5 flex-1 rounded-full bg-slate-200 transition-colors';
+      }
+    });
+
+    const cfg = configs[score - 1] || configs[0];
+    label.textContent = cfg.text + ' password';
+    label.className = `text-xs font-medium ${cfg.textColor}`;
+  }
+</script>
+</body>
+</html>

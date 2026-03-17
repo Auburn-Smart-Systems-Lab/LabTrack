@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="{% url 'reservations:list' %}" class="hover:text-indigo-600">Reservations</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-700">Reservation #{{ reservation.pk }}</span>
+  </nav>
+
+  <!-- Header -->
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">
+        {% if reservation.equipment %}{{ reservation.equipment.name }}{% elif reservation.kit %}{{ reservation.kit.name }}{% endif %}
+      </h1>
+      <p class="mt-1 text-sm text-gray-500">
+        Reserved by {{ reservation.requester.get_full_name|default:reservation.requester.username }}
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if reservation.status == 'CONFIRMED' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+          Confirmed
+        </span>
+      {% elif reservation.status == 'PENDING' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+          Pending
+        </span>
+      {% elif reservation.status == 'CANCELLED' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+          Cancelled
+        </span>
+      {% elif reservation.status == 'COMPLETED' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+          Completed
+        </span>
+      {% elif reservation.status == 'EXPIRED' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+          Expired
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Detail Card -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+      <h2 class="text-sm font-semibold text-gray-700">Reservation Details</h2>
+    </div>
+    <dl class="divide-y divide-gray-100">
+      <!-- Item -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Item</dt>
+        <dd class="col-span-2 text-sm text-gray-900">
+          {% if reservation.equipment %}
+            <a href="{% url 'equipment:detail' reservation.equipment.pk %}"
+               class="text-indigo-600 hover:underline font-medium">
+              {{ reservation.equipment.name }}
+            </a>
+            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">Equipment</span>
+          {% elif reservation.kit %}
+            <a href="{% url 'kits:detail' reservation.kit.pk %}"
+               class="text-indigo-600 hover:underline font-medium">
+              {{ reservation.kit.name }}
+            </a>
+            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">Kit</span>
+          {% endif %}
+        </dd>
+      </div>
+
+      <!-- Start Date -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Start Date</dt>
+        <dd class="col-span-2 text-sm text-gray-900">{{ reservation.start_date|date:"l, F j, Y" }}</dd>
+      </div>
+
+      <!-- End Date -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">End Date</dt>
+        <dd class="col-span-2 text-sm text-gray-900">{{ reservation.end_date|date:"l, F j, Y" }}</dd>
+      </div>
+
+      <!-- Duration -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Duration</dt>
+        <dd class="col-span-2 text-sm text-gray-900">
+          {{ reservation.end_date|timeuntil:reservation.start_date }}
+        </dd>
+      </div>
+
+      <!-- Purpose -->
+      {% if reservation.purpose %}
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Purpose</dt>
+        <dd class="col-span-2 text-sm text-gray-900 whitespace-pre-line">{{ reservation.purpose }}</dd>
+      </div>
+      {% endif %}
+
+      <!-- Requester -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Requested By</dt>
+        <dd class="col-span-2 text-sm text-gray-900">
+          {{ reservation.requester.get_full_name|default:reservation.requester.username }}
+          <span class="text-gray-400 ml-1">({{ reservation.requester.email }})</span>
+        </dd>
+      </div>
+
+      <!-- Created At -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Created</dt>
+        <dd class="col-span-2 text-sm text-gray-900">{{ reservation.created_at|date:"F j, Y \a\t g:i A" }}</dd>
+      </div>
+
+      <!-- Updated At -->
+      <div class="px-6 py-4 grid grid-cols-3 gap-4">
+        <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+        <dd class="col-span-2 text-sm text-gray-900">{{ reservation.updated_at|date:"F j, Y \a\t g:i A" }}</dd>
+      </div>
+    </dl>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex flex-wrap items-center gap-3">
+
+    {% if reservation.status == 'CONFIRMED' %}
+    <!-- Cancel Button (with confirmation) -->
+    <form method="post" action="{% url 'reservations:cancel' reservation.pk %}"
+          onsubmit="return confirm('Are you sure you want to cancel this reservation? This cannot be undone.')">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        Cancel Reservation
+      </button>
+    </form>
+    {% endif %}
+
+    {% if reservation.status == 'PENDING' %}
+    <form method="post" action="{% url 'reservations:cancel' reservation.pk %}"
+          onsubmit="return confirm('Cancel this pending reservation?')">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 bg-red-50 text-red-700 border border-red-300 rounded-lg text-sm font-medium hover:bg-red-100 transition">
+        Cancel Request
+      </button>
+    </form>
+    {% endif %}
+
+    {% if request.user.is_staff and reservation.status == 'PENDING' %}
+    <form method="post" action="{% url 'reservations:confirm' reservation.pk %}">
+      {% csrf_token %}
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Confirm Reservation
+      </button>
+    </form>
+    {% endif %}
+
+    <a href="{% url 'reservations:list' %}"
+       class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition">
+      Back to List
+    </a>
+  </div>
+
+  <!-- Waitlist Info -->
+  {% if waitlist_entries %}
+  <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+    <h3 class="text-sm font-semibold text-yellow-800 mb-2">
+      Waitlist ({{ waitlist_entries.count }} waiting)
+    </h3>
+    <p class="text-xs text-yellow-700">
+      Other users are waiting for this item. Cancelling will notify the next person in line.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

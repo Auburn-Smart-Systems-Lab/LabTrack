@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="{% url 'projects:list' %}" class="hover:text-indigo-600">Projects</a>
+    <span class="mx-2">/</span>
+    <span class="text-gray-700">{% if form.instance.pk %}Edit Project{% else %}New Project{% endif %}</span>
+  </nav>
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">
+      {% if form.instance.pk %}Edit Project{% else %}Create New Project{% endif %}
+    </h1>
+    <p class="mt-1 text-sm text-gray-500">
+      {% if form.instance.pk %}Update project details.{% else %}Start tracking a new lab project.{% endif %}
+    </p>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+      <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+        {% for error in form.non_field_errors %}
+          <p class="text-sm text-red-700">{{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Project Name -->
+      <div class="mb-5">
+        <label for="{{ form.name.id_for_label }}"
+               class="block text-sm font-medium text-gray-700 mb-1">
+          Project Name <span class="text-red-500">*</span>
+        </label>
+        <input type="text"
+               name="{{ form.name.html_name }}"
+               id="{{ form.name.id_for_label }}"
+               value="{{ form.name.value|default:'' }}"
+               placeholder="e.g., Autonomous Robot Prototype v2"
+               class="w-full border {% if form.name.errors %}border-red-400{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        {% for error in form.name.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <!-- Description -->
+      <div class="mb-5">
+        <label for="{{ form.description.id_for_label }}"
+               class="block text-sm font-medium text-gray-700 mb-1">
+          Description
+        </label>
+        <textarea name="{{ form.description.html_name }}"
+                  id="{{ form.description.id_for_label }}"
+                  rows="4"
+                  placeholder="Describe the project goals, scope, and expected outcomes..."
+                  class="w-full border {% if form.description.errors %}border-red-400{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none">{{ form.description.value|default:'' }}</textarea>
+        {% for error in form.description.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <!-- Status -->
+      <div class="mb-5">
+        <label for="{{ form.status.id_for_label }}"
+               class="block text-sm font-medium text-gray-700 mb-1">
+          Status <span class="text-red-500">*</span>
+        </label>
+        <select name="{{ form.status.html_name }}"
+                id="{{ form.status.id_for_label }}"
+                class="w-full border {% if form.status.errors %}border-red-400{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="ACTIVE" {% if form.status.value == 'ACTIVE' %}selected{% endif %}>Active</option>
+          <option value="COMPLETED" {% if form.status.value == 'COMPLETED' %}selected{% endif %}>Completed</option>
+          <option value="ON_HOLD" {% if form.status.value == 'ON_HOLD' %}selected{% endif %}>On Hold</option>
+          <option value="CANCELLED" {% if form.status.value == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+        </select>
+        {% for error in form.status.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+
+      <!-- Date Range -->
+      <div class="mb-5">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="{{ form.start_date.id_for_label }}"
+                   class="block text-sm font-medium text-gray-700 mb-1">
+              Start Date
+            </label>
+            <input type="date"
+                   name="{{ form.start_date.html_name }}"
+                   id="{{ form.start_date.id_for_label }}"
+                   value="{{ form.start_date.value|date:'Y-m-d'|default:'' }}"
+                   class="w-full border {% if form.start_date.errors %}border-red-400{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            {% for error in form.start_date.errors %}
+              <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+          <div>
+            <label for="{{ form.end_date.id_for_label }}"
+                   class="block text-sm font-medium text-gray-700 mb-1">
+              End Date
+            </label>
+            <input type="date"
+                   name="{{ form.end_date.html_name }}"
+                   id="{{ form.end_date.id_for_label }}"
+                   value="{{ form.end_date.value|date:'Y-m-d'|default:'' }}"
+                   class="w-full border {% if form.end_date.errors %}border-red-400{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            {% for error in form.end_date.errors %}
+              <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+        <p class="mt-1.5 text-xs text-gray-400">Leave blank if dates are not yet determined.</p>
+      </div>
+
+      <!-- Lead (admin only) -->
+      {% if form.lead and request.user.is_staff %}
+      <div class="mb-5">
+        <label for="{{ form.lead.id_for_label }}"
+               class="block text-sm font-medium text-gray-700 mb-1">
+          Project Lead
+        </label>
+        <select name="{{ form.lead.html_name }}"
+                id="{{ form.lead.id_for_label }}"
+                class="w-full border {% if form.lead.errors %}border-red-400{% else %}border-gray-300{% endif %} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">-- Assign Lead --</option>
+          {% for user in form.lead.field.queryset %}
+            <option value="{{ user.pk }}"
+                    {% if form.lead.value == user.pk|stringformat:"s" %}selected{% endif %}>
+              {{ user.get_full_name|default:user.username }}
+            </option>
+          {% endfor %}
+        </select>
+        {% for error in form.lead.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Submit -->
+      <div class="pt-5 border-t border-gray-100 flex items-center gap-3">
+        <button type="submit"
+                class="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+          {% if form.instance.pk %}Save Changes{% else %}Create Project{% endif %}
+        </button>
+        <a href="{% if form.instance.pk %}{% url 'projects:detail' form.instance.pk %}{% else %}{% url 'projects:list' %}{% endif %}"
+           class="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

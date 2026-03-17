@@ -1,0 +1,163 @@
+{% if page_obj.has_other_pages %}
+<nav class="flex items-center justify-between mt-6" aria-label="Pagination">
+
+  <!-- Mobile: simple prev / next -->
+  <div class="flex flex-1 justify-between sm:hidden gap-2">
+    {% if page_obj.has_previous %}
+    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Previous
+    </a>
+    {% else %}
+    <span class="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-50 border border-slate-200 text-sm font-medium text-slate-400 rounded-lg cursor-not-allowed">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Previous
+    </span>
+    {% endif %}
+
+    {% if page_obj.has_next %}
+    <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50 transition-colors shadow-sm">
+      Next
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </a>
+    {% else %}
+    <span class="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-50 border border-slate-200 text-sm font-medium text-slate-400 rounded-lg cursor-not-allowed">
+      Next
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+      </svg>
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Desktop: numbered pagination -->
+  <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+
+    <!-- Results count -->
+    <div>
+      <p class="text-sm text-slate-600">
+        Showing
+        <span class="font-semibold text-slate-800">{{ page_obj.start_index }}</span>
+        to
+        <span class="font-semibold text-slate-800">{{ page_obj.end_index }}</span>
+        of
+        <span class="font-semibold text-slate-800">{{ page_obj.paginator.count }}</span>
+        results
+      </p>
+    </div>
+
+    <!-- Page numbers -->
+    <div>
+      <ol class="flex items-center gap-1" role="list">
+
+        <!-- First page + previous arrow -->
+        {% if page_obj.has_previous %}
+        <li>
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page=1"
+             class="inline-flex items-center justify-center w-9 h-9 border border-slate-300 bg-white text-slate-500 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm"
+             aria-label="First page">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.previous_page_number }}"
+             class="inline-flex items-center justify-center w-9 h-9 border border-slate-300 bg-white text-slate-500 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm"
+             aria-label="Previous page">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </a>
+        </li>
+        {% else %}
+        <li>
+          <span class="inline-flex items-center justify-center w-9 h-9 border border-slate-200 bg-slate-50 text-slate-300 rounded-lg cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+            </svg>
+          </span>
+        </li>
+        <li>
+          <span class="inline-flex items-center justify-center w-9 h-9 border border-slate-200 bg-slate-50 text-slate-300 rounded-lg cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </span>
+        </li>
+        {% endif %}
+
+        <!-- Page number range -->
+        {% for num in page_obj.paginator.page_range %}
+          {% if page_obj.number == num %}
+          <li>
+            <span class="inline-flex items-center justify-center w-9 h-9 border border-brand-500 bg-brand-600 text-white font-semibold rounded-lg text-sm shadow-sm"
+                  aria-current="page">{{ num }}</span>
+          </li>
+          {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+          <li>
+            <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ num }}"
+               class="inline-flex items-center justify-center w-9 h-9 border border-slate-300 bg-white text-slate-700 rounded-lg hover:bg-slate-50 hover:text-brand-600 hover:border-brand-300 transition-colors shadow-sm text-sm font-medium">
+              {{ num }}
+            </a>
+          </li>
+          {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+          <li>
+            <span class="inline-flex items-center justify-center w-9 h-9 text-slate-400 text-sm">
+              &hellip;
+            </span>
+          </li>
+          {% endif %}
+        {% endfor %}
+
+        <!-- Next arrow + last page -->
+        {% if page_obj.has_next %}
+        <li>
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.next_page_number }}"
+             class="inline-flex items-center justify-center w-9 h-9 border border-slate-300 bg-white text-slate-500 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm"
+             aria-label="Next page">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="?{% if request.GET.urlencode %}{{ request.GET.urlencode }}&{% endif %}page={{ page_obj.paginator.num_pages }}"
+             class="inline-flex items-center justify-center w-9 h-9 border border-slate-300 bg-white text-slate-500 rounded-lg hover:bg-slate-50 hover:text-brand-600 transition-colors shadow-sm"
+             aria-label="Last page">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </li>
+        {% else %}
+        <li>
+          <span class="inline-flex items-center justify-center w-9 h-9 border border-slate-200 bg-slate-50 text-slate-300 rounded-lg cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </span>
+        </li>
+        <li>
+          <span class="inline-flex items-center justify-center w-9 h-9 border border-slate-200 bg-slate-50 text-slate-300 rounded-lg cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+            </svg>
+          </span>
+        </li>
+        {% endif %}
+
+      </ol>
+    </div>
+  </div>
+
+</nav>
+{% endif %}

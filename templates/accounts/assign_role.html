@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Assign Role – {{ target_user.username }} – SSELabTrack{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Assign Role</h1>
+    <p class="text-sm text-gray-500 mt-1">Change role for <strong>{{ target_user.full_name }}</strong> ({{ target_user.email }})</p>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="mb-4 p-4 bg-gray-50 rounded-lg flex items-center gap-3">
+      <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+        {{ target_user.username|first|upper }}
+      </div>
+      <div>
+        <p class="text-sm font-medium text-gray-900">{{ target_user.full_name }}</p>
+        <p class="text-xs text-gray-500">Current role: <span class="font-medium">{{ target_user.get_role_display }}</span></p>
+      </div>
+    </div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="mb-5">
+        <label class="block text-sm font-medium text-gray-700 mb-1">New Role</label>
+        {{ form.role }}
+      </div>
+      <div class="flex gap-3">
+        <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">Update Role</button>
+        <a href="{% url 'accounts:user_list' %}" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<style>
+  form select { width:100%; padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem; font-size:0.875rem; }
+</style>
+{% endblock %}

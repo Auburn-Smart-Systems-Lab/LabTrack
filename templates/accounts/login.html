@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In | SSELabTrack</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe',
+              300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1',
+              600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81',
+            }
+          },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body class="h-full bg-gradient-to-br from-slate-900 via-slate-800 to-brand-900 font-sans antialiased">
+
+<div class="min-h-full flex flex-col items-center justify-center px-4 py-12">
+
+  <!-- Logo / Branding -->
+  <div class="flex flex-col items-center mb-8">
+    <div class="w-16 h-16 rounded-2xl bg-brand-600 flex items-center justify-center shadow-xl mb-4">
+      <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+      </svg>
+    </div>
+    <h1 class="text-2xl font-extrabold text-white tracking-tight">SSELabTrack</h1>
+    <p class="text-slate-400 text-sm mt-1">Software &amp; Systems Engineering Lab</p>
+  </div>
+
+  <!-- Login card -->
+  <div class="w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden">
+
+      <!-- Card header -->
+      <div class="px-8 pt-8 pb-6 border-b border-slate-100">
+        <h2 class="text-xl font-bold text-slate-800">Welcome back</h2>
+        <p class="text-sm text-slate-500 mt-1">Sign in to your lab account</p>
+      </div>
+
+      <!-- Flash messages -->
+      {% if messages %}
+      <div class="px-8 pt-4">
+        {% for message in messages %}
+        <div class="flex items-center gap-3 px-4 py-3 rounded-lg mb-2
+          {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200
+          {% elif message.tags == 'error' or message.tags == 'danger' %}bg-red-50 text-red-800 border border-red-200
+          {% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200
+          {% else %}bg-blue-50 text-blue-800 border border-blue-200{% endif %}">
+          <p class="text-sm font-medium">{{ message }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Form -->
+      <form method="post" action="{% url 'accounts:login' %}" class="px-8 pt-6 pb-8 space-y-5">
+        {% csrf_token %}
+
+        <!-- Non-field errors -->
+        {% if form.non_field_errors %}
+        <div class="flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-lg">
+          <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            {% for error in form.non_field_errors %}
+            <p class="text-sm text-red-700 font-medium">{{ error }}</p>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Email field -->
+        <div>
+          <label for="{{ form.email.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            Email Address
+          </label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+              </svg>
+            </div>
+            <input type="email"
+                   id="{{ form.email.id_for_label }}"
+                   name="{{ form.email.html_name }}"
+                   value="{{ form.email.value|default:'' }}"
+                   placeholder="your@email.com"
+                   autocomplete="email"
+                   required
+                   class="block w-full pl-9 pr-4 py-2.5 border
+                     {% if form.email.errors %}border-red-400 focus:ring-red-500 bg-red-50{% else %}border-slate-300 focus:ring-brand-500{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:border-transparent transition" />
+          </div>
+          {% for error in form.email.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Password field -->
+        <div>
+          <label for="{{ form.password.id_for_label }}" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            Password
+          </label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+              </svg>
+            </div>
+            <input type="password"
+                   id="{{ form.password.id_for_label }}"
+                   name="{{ form.password.html_name }}"
+                   placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                   autocomplete="current-password"
+                   required
+                   class="block w-full pl-9 pr-10 py-2.5 border
+                     {% if form.password.errors %}border-red-400 focus:ring-red-500 bg-red-50{% else %}border-slate-300 focus:ring-brand-500{% endif %}
+                     rounded-lg text-sm text-slate-800 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:border-transparent transition" />
+            <!-- Toggle password visibility -->
+            <button type="button" id="toggle-password"
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+              <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </button>
+          </div>
+          {% for error in form.password.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Remember me -->
+        <div class="flex items-center justify-between">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox"
+                   name="remember_me"
+                   id="remember-me"
+                   class="w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500 focus:ring-2 cursor-pointer" />
+            <span class="text-sm text-slate-600 font-medium">Remember me</span>
+          </label>
+          <a href="#" class="text-sm font-medium text-brand-600 hover:text-brand-700 hover:underline">
+            Forgot password?
+          </a>
+        </div>
+
+        <!-- Next redirect -->
+        {% if next %}
+        <input type="hidden" name="next" value="{{ next }}" />
+        {% endif %}
+
+        <!-- Submit -->
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2 py-3 px-6 bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+          </svg>
+          Sign In
+        </button>
+
+        <!-- Register link -->
+        <p class="text-center text-sm text-slate-500">
+          Don't have an account?
+          <a href="{% url 'accounts:register' %}"
+             class="font-semibold text-brand-600 hover:text-brand-700 hover:underline">
+            Create one
+          </a>
+        </p>
+
+      </form>
+    </div>
+
+    <!-- Footer note -->
+    <p class="text-center text-xs text-slate-500 mt-6">
+      &copy; {% now "Y" %} SSELabTrack &mdash; Software &amp; Systems Engineering Lab
+    </p>
+  </div>
+
+</div>
+
+<script>
+  document.getElementById('toggle-password').addEventListener('click', function() {
+    const input = document.querySelector('input[name="{{ form.password.html_name }}"]');
+    const icon = document.getElementById('eye-icon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`;
+    } else {
+      input.type = 'password';
+      icon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
+    }
+  });
+</script>
+</body>
+</html>

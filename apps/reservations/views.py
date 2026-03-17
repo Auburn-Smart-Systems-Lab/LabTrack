@@ -1,0 +1,268 @@
+"""Views for the reservations app."""
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+
+from apps.activity.utils import log_activity
+from apps.notifications.utils import notify
+from apps.reservations.forms import ReservationForm, WaitlistEntryForm
+from apps.reservations.models import Reservation, WaitlistEntry
+
+
+def _is_admin(user):
+    return user.is_authenticated and user.role == 'ADMIN'
+
+
+@login_required
+def reservation_list_view(request):
+    """List reservations: members see their own; admins see all."""
+    if _is_admin(request.user):
+        reservations = Reservation.objects.select_related(
+            'requester', 'equipment', 'kit'
+        )
+    else:
+        reservations = Reservation.objects.filter(
+            requester=request.user
+        ).select_related('equipment', 'kit')
+
+    return render(request, 'reservations/reservation_list.html', {
+        'reservations': reservations,
+    })
+
+
+@login_required
+def reservation_calendar_view(request):
+    """Return calendar event data as JSON, or render the calendar template."""
+    if request.headers.get('Accept') == 'application/json' or request.GET.get('format') == 'json':
+        reservations = Reservation.objects.filter(
+            status__in=['PENDING', 'CONFIRMED']
+        ).select_related('equipment', 'kit', 'requester')
+
+        events = []
+        for reservation in reservations:
+            item_name = str(reservation.equipment or reservation.kit or 'Unknown')
+            events.append({
+                'id': reservation.pk,
+                'title': f'{item_name} — {reservation.requester.username}',
+                'start': reservation.start_date.isoformat(),
+                'end': reservation.end_date.isoformat(),
+                'status': reservation.status,
+                'url': f'/reservations/{reservation.pk}/',
+            })
+
+        return JsonResponse({'events': events})
+
+    return render(request, 'reservations/reservation_calendar.html')
+
+
+@login_required
+def reservation_create_view(request):
+    """Create a new reservation with overlap and date validation."""
+    if request.method == 'POST':
+        form = ReservationForm(request.POST)
+        if form.is_valid():
+            reservation = form.save(commit=False)
+            reservation.requester = request.user
+            reservation.status = 'PENDING'
+            reservation.save()
+
+            log_activity(
+                actor=request.user,
+                action='RESERVATION_CREATED',
+                description=(
+                    f'{request.user.username} created a reservation for '
+                    f'{reservation.equipment or reservation.kit} '
+                    f'({reservation.start_date} – {reservation.end_date})'
+                ),
+                content_type_label='reservation',
+                object_id=reservation.pk,
+                object_repr=str(reservation),
+                request=request,
+            )
+
+            messages.success(request, 'Reservation created successfully.')
+            return redirect('reservations:detail', pk=reservation.pk)
+    else:
+        form = ReservationForm()
+
+    return render(request, 'reservations/reservation_form.html', {'form': form})
+
+
+@login_required
+def reservation_detail_view(request, pk):
+    """Show the details of a single reservation."""
+    reservation = get_object_or_404(
+        Reservation.objects.select_related('requester', 'equipment', 'kit'),
+        pk=pk,
+    )
+
+    if not _is_admin(request.user) and reservation.requester != request.user:
+        messages.error(request, 'You do not have permission to view this reservation.')
+        return redirect('reservations:list')
+
+    return render(request, 'reservations/reservation_detail.html', {
+        'reservation': reservation,
+    })
+
+
+@login_required
+def reservation_cancel_view(request, pk):
+    """Cancel a reservation and notify the next person on the waitlist."""
+    reservation = get_object_or_404(
+        Reservation.objects.select_related('requester', 'equipment', 'kit'),
+        pk=pk,
+    )
+
+    if not _is_admin(request.user) and reservation.requester != request.user:
+        messages.error(request, 'You do not have permission to cancel this reservation.')
+        return redirect('reservations:list')
+
+    if reservation.status in ('CANCELLED', 'COMPLETED', 'EXPIRED'):
+        messages.error(request, 'This reservation cannot be cancelled in its current state.')
+        return redirect('reservations:detail', pk=reservation.pk)
+
+    if request.method == 'POST':
+        reservation.status = 'CANCELLED'
+        reservation.save()
+
+        log_activity(
+            actor=request.user,
+            action='RESERVATION_CANCELLED',
+            description=(
+                f'{request.user.username} cancelled reservation #{reservation.pk} '
+                f'for {reservation.equipment or reservation.kit}'
+            ),
+            content_type_label='reservation',
+            object_id=reservation.pk,
+            object_repr=str(reservation),
+            request=request,
+        )
+
+        # Notify next person on the waitlist.
+        waitlist_qs = None
+        if reservation.equipment:
+            waitlist_qs = WaitlistEntry.objects.filter(
+                equipment=reservation.equipment, notified=False
+            ).order_by('position', 'created_at')
+        elif reservation.kit:
+            waitlist_qs = WaitlistEntry.objects.filter(
+                kit=reservation.kit, notified=False
+            ).order_by('position', 'created_at')
+
+        if waitlist_qs is not None:
+            next_entry = waitlist_qs.first()
+            if next_entry:
+                item_name = str(reservation.equipment or reservation.kit)
+                notify(
+                    recipient=next_entry.user,
+                    title='Reservation Slot Available',
+                    message=(
+                        f'A reservation for "{item_name}" has been cancelled. '
+                        'You are next on the waitlist — you may now reserve it.'
+                    ),
+                    level='info',
+                )
+                next_entry.notified = True
+                next_entry.save(update_fields=['notified'])
+
+        messages.success(request, 'Reservation cancelled.')
+        return redirect('reservations:list')
+
+    return render(request, 'reservations/reservation_confirm_cancel.html', {
+        'reservation': reservation,
+    })
+
+
+@login_required
+def waitlist_list_view(request):
+    """List waitlist entries: admins see all; members see their own."""
+    if _is_admin(request.user):
+        entries = WaitlistEntry.objects.select_related('user', 'equipment', 'kit')
+    else:
+        entries = WaitlistEntry.objects.filter(
+            user=request.user
+        ).select_related('equipment', 'kit')
+
+    return render(request, 'reservations/waitlist_list.html', {'entries': entries})
+
+
+@login_required
+def waitlist_create_view(request):
+    """Add the current user to the waitlist for an equipment item or kit."""
+    if request.method == 'POST':
+        form = WaitlistEntryForm(request.POST)
+        if form.is_valid():
+            equipment = form.cleaned_data.get('equipment')
+            kit = form.cleaned_data.get('kit')
+
+            # Check for duplicate entry.
+            existing_qs = WaitlistEntry.objects.filter(user=request.user)
+            if equipment:
+                existing_qs = existing_qs.filter(equipment=equipment)
+            else:
+                existing_qs = existing_qs.filter(kit=kit)
+
+            if existing_qs.exists():
+                messages.warning(request, 'You are already on the waitlist for this item.')
+                return redirect('reservations:waitlist_list')
+
+            # Determine next position.
+            position_qs = WaitlistEntry.objects
+            if equipment:
+                position_qs = position_qs.filter(equipment=equipment)
+            else:
+                position_qs = position_qs.filter(kit=kit)
+
+            next_position = position_qs.count() + 1
+
+            entry = form.save(commit=False)
+            entry.user = request.user
+            entry.position = next_position
+            entry.save()
+
+            messages.success(
+                request,
+                f'You have been added to the waitlist at position {next_position}.'
+            )
+            return redirect('reservations:waitlist_list')
+    else:
+        # Pre-populate equipment/kit from GET params if provided.
+        initial = {}
+        equipment_id = request.GET.get('equipment_id')
+        kit_id = request.GET.get('kit_id')
+        if equipment_id:
+            from apps.equipment.models import Equipment
+            try:
+                initial['equipment'] = Equipment.objects.get(pk=equipment_id)
+            except Equipment.DoesNotExist:
+                pass
+        elif kit_id:
+            from apps.kits.models import Kit
+            try:
+                initial['kit'] = Kit.objects.get(pk=kit_id)
+            except Kit.DoesNotExist:
+                pass
+        form = WaitlistEntryForm(initial=initial)
+
+    return render(request, 'reservations/waitlist_form.html', {'form': form})
+
+
+@login_required
+def waitlist_leave_view(request, pk):
+    """Remove the current user (or any user if admin) from a waitlist entry."""
+    entry = get_object_or_404(WaitlistEntry, pk=pk)
+
+    if not _is_admin(request.user) and entry.user != request.user:
+        messages.error(request, 'You do not have permission to remove this waitlist entry.')
+        return redirect('reservations:waitlist_list')
+
+    if request.method == 'POST':
+        item_name = str(entry.equipment or entry.kit)
+        entry.delete()
+        messages.success(request, f'You have been removed from the waitlist for "{item_name}".')
+        return redirect('reservations:waitlist_list')
+
+    return render(request, 'reservations/waitlist_confirm_leave.html', {'entry': entry})
