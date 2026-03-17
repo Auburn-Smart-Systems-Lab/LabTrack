@@ -199,7 +199,7 @@
                 <!-- Role dropdown -->
                 <div id="role-dropdown-{{ member.pk }}"
                      class="hidden absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg ring-1 ring-black/5 py-1 z-10">
-                  <form method="post" action="{% url 'accounts:change_role' member.pk %}">
+                  <form method="post" action="{% url 'accounts:assign_role' member.pk %}">
                     {% csrf_token %}
                     <input type="hidden" name="role" value="MEMBER" />
                     <button type="submit"
@@ -209,7 +209,7 @@
                       Member
                     </button>
                   </form>
-                  <form method="post" action="{% url 'accounts:change_role' member.pk %}">
+                  <form method="post" action="{% url 'accounts:assign_role' member.pk %}">
                     {% csrf_token %}
                     <input type="hidden" name="role" value="ADMIN" />
                     <button type="submit"

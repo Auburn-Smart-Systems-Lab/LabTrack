@@ -15,4 +15,5 @@ urlpatterns = [
     path('users/<int:pk>/', views.user_detail_view, name='user_detail'),
     path('users/<int:pk>/', views.user_detail_view, name='profile_view'),
     path('users/<int:pk>/role/', views.assign_role_view, name='assign_role'),
+    path('users/<int:pk>/toggle-active/', views.toggle_active_view, name='toggle_active'),
 ]

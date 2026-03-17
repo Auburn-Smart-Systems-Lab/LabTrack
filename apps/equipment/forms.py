@@ -76,7 +76,6 @@ class EquipmentForm(forms.ModelForm):
             'purchase_date',
             'purchase_price',
             'notes',
-            'is_active',
         )
         widgets = {
             'name': forms.TextInput(attrs={

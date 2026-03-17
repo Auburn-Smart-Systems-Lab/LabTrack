@@ -142,7 +142,7 @@
           <div class="px-5 py-3 flex items-center justify-between gap-3">
             <div class="min-w-0 flex-1">
               <p class="text-sm font-medium text-slate-800 truncate">
-                {{ reservation.equipment or reservation.kit }}
+                {{ reservation.equipment|default:reservation.kit }}
               </p>
               <p class="text-xs text-slate-500 mt-0.5">
                 {{ reservation.start_date|date:"M j" }} &mdash; {{ reservation.end_date|date:"M j, Y" }}

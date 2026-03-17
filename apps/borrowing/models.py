@@ -65,9 +65,15 @@ class BorrowRequest(models.Model):
 
     @property
     def is_overdue(self):
-        from django.utils import timezone
         from datetime import date
         return self.status in ['ACTIVE', 'APPROVED'] and self.due_date < date.today()
+
+    @property
+    def days_overdue(self):
+        from datetime import date
+        if self.is_overdue:
+            return (date.today() - self.due_date).days
+        return 0
 
     @property
     def item(self):

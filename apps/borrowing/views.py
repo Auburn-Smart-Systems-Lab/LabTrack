@@ -37,6 +37,13 @@ def borrow_list_view(request):
             'equipment', 'kit', 'project', 'approved_by'
         )
 
+    # Compute counts from the unfiltered queryset for badges
+    pending_count = qs.filter(status='PENDING').count()
+    overdue_count = qs.filter(
+        status__in=['APPROVED', 'ACTIVE'], due_date__lt=date.today()
+    ).count()
+    total_count = qs.count()
+
     if status_filter:
         qs = qs.filter(status=status_filter)
 
@@ -45,8 +52,12 @@ def borrow_list_view(request):
 
     return render(request, 'borrowing/borrow_list.html', {
         'page_obj': page_obj,
+        'borrow_list': page_obj,
         'status_filter': status_filter,
         'status_choices': BorrowRequest.STATUS_CHOICES,
+        'pending_count': pending_count,
+        'overdue_count': overdue_count,
+        'total_count': total_count,
     })
 
 
@@ -306,10 +317,13 @@ def overdue_list_view(request):
         messages.error(request, 'Only admins can view the overdue list.')
         return redirect('borrowing:list')
 
-    overdue_borrows = BorrowRequest.objects.filter(
+    qs = BorrowRequest.objects.filter(
         due_date__lt=date.today(),
         status__in=['APPROVED', 'ACTIVE'],
-    ).select_related('borrower', 'equipment', 'kit', 'project')
+    ).select_related('borrower', 'equipment', 'kit', 'project').order_by('due_date')
+
+    paginator = Paginator(qs, 20)
+    overdue_borrows = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'borrowing/overdue_list.html', {
         'overdue_borrows': overdue_borrows,
@@ -323,9 +337,12 @@ def approval_queue_view(request):
         messages.error(request, 'Only admins can view the approval queue.')
         return redirect('borrowing:list')
 
-    pending_borrows = BorrowRequest.objects.filter(status='PENDING').select_related(
+    qs = BorrowRequest.objects.filter(status='PENDING').select_related(
         'borrower', 'equipment', 'kit', 'project'
-    )
+    ).order_by('requested_date')
+
+    paginator = Paginator(qs, 20)
+    pending_borrows = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'borrowing/approval_queue.html', {
         'pending_borrows': pending_borrows,

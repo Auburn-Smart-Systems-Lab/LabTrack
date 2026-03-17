@@ -30,40 +30,42 @@ def equipment_list_view(request):
     status, condition, and a free-text search query.
     """
     queryset = Equipment.objects.select_related('category', 'location', 'owner').filter(is_active=True)
-    filter_form = EquipmentFilterForm(request.GET or None)
 
-    if filter_form.is_valid():
-        search = filter_form.cleaned_data.get('search', '').strip()
-        category = filter_form.cleaned_data.get('category')
-        location = filter_form.cleaned_data.get('location')
-        status = filter_form.cleaned_data.get('status', '').strip()
-        condition = filter_form.cleaned_data.get('condition', '').strip()
+    search = request.GET.get('q', '').strip()
+    category_id = request.GET.get('category', '').strip()
+    location_id = request.GET.get('location', '').strip()
+    status = request.GET.get('status', '').strip()
+    condition = request.GET.get('condition', '').strip()
 
-        if search:
-            queryset = queryset.filter(
-                Q(name__icontains=search)
-                | Q(serial_number__icontains=search)
-                | Q(model_number__icontains=search)
-                | Q(manufacturer__icontains=search)
-                | Q(description__icontains=search)
-            )
-        if category:
-            queryset = queryset.filter(category=category)
-        if location:
-            queryset = queryset.filter(location=location)
-        if status:
-            queryset = queryset.filter(status=status)
-        if condition:
-            queryset = queryset.filter(condition=condition)
+    if search:
+        queryset = queryset.filter(
+            Q(name__icontains=search)
+            | Q(serial_number__icontains=search)
+            | Q(model_number__icontains=search)
+            | Q(manufacturer__icontains=search)
+            | Q(description__icontains=search)
+        )
+    if category_id:
+        queryset = queryset.filter(category_id=category_id)
+    if location_id:
+        queryset = queryset.filter(location_id=location_id)
+    if status:
+        queryset = queryset.filter(status=status)
+    if condition:
+        queryset = queryset.filter(condition=condition)
 
     queryset = queryset.order_by('name')
+    total_count = queryset.count()
     paginator = Paginator(queryset, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'equipment/equipment_list.html', {
         'page_obj': page_obj,
-        'filter_form': filter_form,
+        'equipment_list': page_obj,
+        'total_count': total_count,
+        'categories': Category.objects.all().order_by('name'),
+        'locations': Location.objects.all().order_by('name'),
     })
 
 

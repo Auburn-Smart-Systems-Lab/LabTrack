@@ -12,6 +12,7 @@ urlpatterns = [
     path('create/', views.reservation_create_view, name='create'),
     path('<int:pk>/', views.reservation_detail_view, name='detail'),
     path('<int:pk>/cancel/', views.reservation_cancel_view, name='cancel'),
+    path('<int:pk>/confirm/', views.reservation_confirm_view, name='confirm'),
     path('waitlist/', views.waitlist_list_view, name='waitlist_list'),
     path('waitlist/create/', views.waitlist_create_view, name='waitlist_create'),
     path('waitlist/<int:pk>/leave/', views.waitlist_leave_view, name='waitlist_leave'),

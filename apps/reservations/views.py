@@ -103,8 +103,20 @@ def reservation_detail_view(request, pk):
         messages.error(request, 'You do not have permission to view this reservation.')
         return redirect('reservations:list')
 
+    if reservation.equipment:
+        waitlist_entries = WaitlistEntry.objects.filter(
+            equipment=reservation.equipment
+        ).select_related('user').order_by('position', 'created_at')
+    elif reservation.kit:
+        waitlist_entries = WaitlistEntry.objects.filter(
+            kit=reservation.kit
+        ).select_related('user').order_by('position', 'created_at')
+    else:
+        waitlist_entries = WaitlistEntry.objects.none()
+
     return render(request, 'reservations/reservation_detail.html', {
         'reservation': reservation,
+        'waitlist_entries': waitlist_entries,
     })
 
 
@@ -174,6 +186,55 @@ def reservation_cancel_view(request, pk):
     return render(request, 'reservations/reservation_confirm_cancel.html', {
         'reservation': reservation,
     })
+
+
+@login_required
+def reservation_confirm_view(request, pk):
+    """Confirm a pending reservation (admin only)."""
+    reservation = get_object_or_404(
+        Reservation.objects.select_related('requester', 'equipment', 'kit'),
+        pk=pk,
+    )
+
+    if not _is_admin(request.user):
+        messages.error(request, 'Only admins can confirm reservations.')
+        return redirect('reservations:detail', pk=reservation.pk)
+
+    if reservation.status != 'PENDING':
+        messages.error(request, 'Only pending reservations can be confirmed.')
+        return redirect('reservations:detail', pk=reservation.pk)
+
+    if request.method == 'POST':
+        reservation.status = 'CONFIRMED'
+        reservation.save()
+
+        log_activity(
+            actor=request.user,
+            action='RESERVATION_CONFIRMED',
+            description=(
+                f'{request.user.username} confirmed reservation #{reservation.pk} '
+                f'for {reservation.equipment or reservation.kit}'
+            ),
+            content_type_label='reservation',
+            object_id=reservation.pk,
+            object_repr=str(reservation),
+            request=request,
+        )
+
+        notify(
+            recipient=reservation.requester,
+            title='Reservation Confirmed',
+            message=(
+                f'Your reservation for "{reservation.equipment or reservation.kit}" '
+                f'({reservation.start_date} – {reservation.end_date}) has been confirmed.'
+            ),
+            level='success',
+        )
+
+        messages.success(request, 'Reservation confirmed.')
+        return redirect('reservations:detail', pk=reservation.pk)
+
+    return redirect('reservations:detail', pk=reservation.pk)
 
 
 @login_required

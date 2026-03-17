@@ -228,3 +228,27 @@ def assign_role_view(request, pk):
         'form': form,
         'target_user': target_user,
     })
+
+
+@login_required
+@admin_required
+def toggle_active_view(request, pk):
+    """Toggle the active/inactive status of a user (admin only)."""
+    target_user = get_object_or_404(CustomUser, pk=pk)
+
+    if request.method == 'POST':
+        target_user.is_active = not target_user.is_active
+        target_user.save(update_fields=['is_active'])
+        status = 'activated' if target_user.is_active else 'deactivated'
+        log_activity(
+            actor=request.user,
+            action='USER_STATUS_CHANGED',
+            description=f'User {target_user.email} was {status} by {request.user.email}.',
+            content_type_label='customuser',
+            object_id=target_user.pk,
+            object_repr=str(target_user),
+            request=request,
+        )
+        messages.success(request, f"{target_user.full_name} has been {status}.")
+
+    return redirect('accounts:user_list')
