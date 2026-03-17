@@ -45,6 +45,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
                 f"'{item_name}'. Please review."
             ),
             level='info',
+            link=f'/borrowing/{instance.pk}/',
         )
         log_activity(
             actor=instance.borrower,
@@ -66,6 +67,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
             title='Borrow Request Approved',
             message=f"Your request to borrow '{item_name}' has been approved.",
             level='success',
+            link=f'/borrowing/{instance.pk}/',
         )
         log_activity(
             actor=instance.approved_by,
@@ -85,6 +87,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
             title='Borrow Request Rejected',
             message=f"Your request to borrow '{item_name}' has been rejected.",
             level='error',
+            link=f'/borrowing/{instance.pk}/',
         )
         log_activity(
             actor=instance.approved_by,
@@ -104,6 +107,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
             title='Item Returned',
             message=f"'{item_name}' has been marked as returned. Thank you!",
             level='success',
+            link=f'/borrowing/{instance.pk}/',
         )
         log_activity(
             actor=instance.borrower,
@@ -123,6 +127,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
                 f"Please return it as soon as possible."
             ),
             level='warning',
+            link=f'/borrowing/{instance.pk}/',
         )
         notify_admins(
             title='Overdue Borrow Alert',
@@ -131,6 +136,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
                 f"is now overdue (due: {instance.due_date})."
             ),
             level='warning',
+            link=f'/borrowing/{instance.pk}/',
         )
         log_activity(
             actor=None,

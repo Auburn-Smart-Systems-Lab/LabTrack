@@ -117,25 +117,29 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # ---------------------------------------------------------------------------
 # Database
+# PostgreSQL is used when DB_HOST is set (e.g. in Docker / production).
+# Falls back to SQLite for local development without any extra setup.
 # ---------------------------------------------------------------------------
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+_DB_HOST = config('DB_HOST', default='')
 
-# Uncomment and configure the following to use PostgreSQL:
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': config('DB_NAME', default='sselabtrack'),
-#         'USER': config('DB_USER', default='postgres'),
-#         'PASSWORD': config('DB_PASSWORD', default=''),
-#         'HOST': config('DB_HOST', default='localhost'),
-#         'PORT': config('DB_PORT', default='5432'),
-#     }
-# }
+if _DB_HOST:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME', default='labtrack'),
+            'USER': config('DB_USER', default='labtrack'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': _DB_HOST,
+            'PORT': config('DB_PORT', default='5432'),
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -180,9 +184,8 @@ USE_TZ = True
 # ---------------------------------------------------------------------------
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+_STATIC_SRC = BASE_DIR / 'static'
+STATICFILES_DIRS = [_STATIC_SRC] if _STATIC_SRC.exists() else []
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 

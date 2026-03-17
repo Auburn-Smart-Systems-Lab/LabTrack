@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.activity.utils import log_activity
+from apps.borrowing.forms import ReturnForm
 from apps.notifications.utils import notify
 from apps.reservations.forms import ReservationForm, WaitlistEntryForm
 from apps.reservations.models import Reservation, WaitlistEntry
@@ -66,7 +67,7 @@ def reservation_create_view(request):
         if form.is_valid():
             reservation = form.save(commit=False)
             reservation.requester = request.user
-            reservation.status = 'PENDING'
+            reservation.status = 'CONFIRMED'
             reservation.save()
 
             log_activity(
@@ -176,6 +177,7 @@ def reservation_cancel_view(request, pk):
                         'You are next on the waitlist — you may now reserve it.'
                     ),
                     level='info',
+                    link='/reservations/create/',
                 )
                 next_entry.notified = True
                 next_entry.save(update_fields=['notified'])
@@ -237,12 +239,137 @@ def reservation_confirm_view(request, pk):
                 f'({reservation.start_date} – {reservation.end_date}) has been confirmed.'
             ),
             level='success',
+            link=f'/reservations/{reservation.pk}/',
         )
 
         messages.success(request, 'Reservation confirmed.')
         return redirect('reservations:detail', pk=reservation.pk)
 
     return redirect('reservations:detail', pk=reservation.pk)
+
+
+@login_required
+def reservation_return_view(request, pk):
+    """Requester submits the return of a reserved item — status goes to RETURN_PENDING."""
+    reservation = get_object_or_404(
+        Reservation.objects.select_related('requester', 'equipment', 'kit'),
+        pk=pk,
+    )
+
+    if reservation.requester != request.user:
+        messages.error(request, 'Only the requester can submit a return.')
+        return redirect('reservations:detail', pk=pk)
+
+    if reservation.status != 'CONFIRMED':
+        messages.error(request, 'Only confirmed reservations can be returned.')
+        return redirect('reservations:detail', pk=pk)
+
+    if request.method == 'POST':
+        form = ReturnForm(request.POST)
+        if form.is_valid():
+            reservation.status = 'RETURN_PENDING'
+            reservation.returned_date = timezone.now()
+            reservation.return_condition = form.cleaned_data['return_condition']
+            reservation.return_notes = form.cleaned_data.get('notes', '')
+            reservation.save()
+
+            log_activity(
+                actor=request.user,
+                action='RESERVATION_CANCELLED',
+                description=(
+                    f'{request.user.username} submitted return for reservation '
+                    f'#{reservation.pk} ({reservation.equipment or reservation.kit})'
+                ),
+                content_type_label='reservation',
+                object_id=reservation.pk,
+                object_repr=str(reservation),
+                request=request,
+            )
+
+            # Notify the equipment/kit owner.
+            if reservation.equipment and reservation.equipment.owner:
+                owner = reservation.equipment.owner
+            elif reservation.kit and reservation.kit.created_by:
+                owner = reservation.kit.created_by
+            else:
+                owner = None
+
+            if owner and owner != request.user:
+                notify(
+                    recipient=owner,
+                    title='Reservation Return Awaiting Confirmation',
+                    message=(
+                        f'{request.user.full_name or request.user.username} has returned '
+                        f'"{reservation.equipment or reservation.kit}" from their reservation. '
+                        f'Please confirm the return.'
+                    ),
+                    level='info',
+                    link=f'/reservations/{reservation.pk}/',
+                )
+
+            messages.success(request, 'Return submitted. Waiting for owner confirmation.')
+            return redirect('reservations:detail', pk=pk)
+    else:
+        form = ReturnForm()
+
+    return render(request, 'reservations/reservation_return_form.html', {
+        'form': form,
+        'reservation': reservation,
+    })
+
+
+@login_required
+def reservation_return_confirm_view(request, pk):
+    """Equipment/kit owner confirms the return of a reserved item."""
+    reservation = get_object_or_404(
+        Reservation.objects.select_related('requester', 'equipment', 'kit'),
+        pk=pk,
+        status='RETURN_PENDING',
+    )
+
+    if reservation.equipment:
+        if request.user != reservation.equipment.owner:
+            messages.error(request, 'Only the equipment owner can confirm this return.')
+            return redirect('reservations:detail', pk=pk)
+    elif reservation.kit:
+        if request.user != reservation.kit.created_by and not _is_admin(request.user):
+            messages.error(request, 'Only the kit owner can confirm this return.')
+            return redirect('reservations:detail', pk=pk)
+
+    if request.method == 'POST':
+        reservation.status = 'RETURNED'
+        reservation.save()
+
+        notify(
+            recipient=reservation.requester,
+            title='Reservation Return Confirmed',
+            message=(
+                f'Your return of "{reservation.equipment or reservation.kit}" '
+                f'has been confirmed. Thank you!'
+            ),
+            level='success',
+            link=f'/reservations/{reservation.pk}/',
+        )
+
+        log_activity(
+            actor=request.user,
+            action='RESERVATION_CONFIRMED',
+            description=(
+                f'{request.user.username} confirmed return for reservation '
+                f'#{reservation.pk} ({reservation.equipment or reservation.kit})'
+            ),
+            content_type_label='reservation',
+            object_id=reservation.pk,
+            object_repr=str(reservation),
+            request=request,
+        )
+
+        messages.success(request, 'Return confirmed.')
+        return redirect('reservations:detail', pk=pk)
+
+    return render(request, 'reservations/reservation_confirm_return.html', {
+        'reservation': reservation,
+    })
 
 
 @login_required

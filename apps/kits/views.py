@@ -11,9 +11,14 @@ from apps.kits.models import Kit, KitItem
 
 @login_required
 def kit_list_view(request):
-    """List all active kits."""
-    kits = Kit.objects.filter(is_active=True).prefetch_related('items__equipment').select_related('created_by')
-    return render(request, 'kits/kit_list.html', {'kits': kits})
+    """List kits: split into the user's own and everyone else's."""
+    base_qs = Kit.objects.filter(is_active=True).prefetch_related('items__equipment').select_related('created_by')
+    my_kits = base_qs.filter(created_by=request.user)
+    shared_kits = base_qs.filter(is_shared=True).exclude(created_by=request.user)
+    return render(request, 'kits/kit_list.html', {
+        'my_kits': my_kits,
+        'shared_kits': shared_kits,
+    })
 
 
 @login_required

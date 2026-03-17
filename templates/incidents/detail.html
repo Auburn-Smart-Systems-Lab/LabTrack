@@ -18,11 +18,16 @@
       </div>
     </div>
     <div class="flex gap-2">
-      {% if user == incident.reported_by or user.is_admin %}
+      {% if user == incident.reported_by or user.is_admin or user == incident.equipment.owner or user == incident.assigned_to %}
         <a href="{% url 'incidents:edit' incident.pk %}" class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">Edit</a>
       {% endif %}
-      {% if user.is_admin and incident.status != 'RESOLVED' and incident.status != 'CLOSED' %}
-        <a href="{% url 'incidents:resolve' incident.pk %}" class="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">Mark Resolved</a>
+      {% if user == incident.reported_by or user.is_admin or user == incident.equipment.owner %}
+        <a href="{% url 'incidents:assign' incident.pk %}" class="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">Assign</a>
+      {% endif %}
+      {% if incident.status != 'RESOLVED' and incident.status != 'CLOSED' %}
+        {% if user.is_admin or user == incident.reported_by or user == incident.equipment.owner or user == incident.assigned_to %}
+          <a href="{% url 'incidents:resolve' incident.pk %}" class="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">Mark Resolved</a>
+        {% endif %}
       {% endif %}
     </div>
   </div>
@@ -32,6 +37,13 @@
       <div><p class="text-gray-500">Equipment</p>
         <a href="{% url 'equipment:detail' incident.equipment.pk %}" class="font-medium text-indigo-600 hover:underline">{{ incident.equipment.name }}</a></div>
       <div><p class="text-gray-500">Reported By</p><p class="font-medium text-gray-900">{{ incident.reported_by.full_name|default:"—" }}</p></div>
+      <div><p class="text-gray-500">Assigned To</p>
+        {% if incident.assigned_to %}
+          <p class="font-medium text-indigo-700">{{ incident.assigned_to.full_name }}</p>
+        {% else %}
+          <p class="text-gray-400 italic">Unassigned</p>
+        {% endif %}
+      </div>
       <div><p class="text-gray-500">Date Reported</p><p class="font-medium text-gray-900">{{ incident.created_at|date:"M d, Y H:i" }}</p></div>
       {% if incident.resolved_at %}<div><p class="text-gray-500">Resolved On</p><p class="font-medium text-gray-900">{{ incident.resolved_at|date:"M d, Y" }}</p></div>{% endif %}
     </div>

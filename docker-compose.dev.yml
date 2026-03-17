@@ -1,0 +1,35 @@
+version: "3.9"
+
+# Development override — run with:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Differences from production:
+#   - Uses SQLite instead of PostgreSQL (no DB_HOST set)
+#   - Django development server instead of Gunicorn
+#   - Source code mounted for live reload
+#   - Port 8000 exposed directly (no Nginx)
+#   - DEBUG=True
+
+services:
+
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "True"
+      SECRET_KEY: dev-secret-key-not-for-production
+      ALLOWED_HOSTS: "localhost,127.0.0.1"
+      # No DB_HOST → falls back to SQLite
+    depends_on: {}   # override: no db/redis required
+
+  # Disable services not needed in dev
+  db:
+    profiles: ["postgres"]   # opt-in only
+  redis:
+    profiles: ["redis"]      # opt-in only
+  nginx:
+    profiles: ["nginx"]      # opt-in only

@@ -46,7 +46,7 @@
             {% endif %}
           </div>
           <!-- Remove overlay -->
-          <label for="{{ avatar_form.avatar.id_for_label }}"
+          <label for="{{ profile_form.avatar.id_for_label }}"
                  class="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-600 hover:bg-brand-700 rounded-full flex items-center justify-center cursor-pointer shadow-sm transition-colors">
             <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -57,13 +57,13 @@
         </div>
 
         <div class="flex-1">
-          <label for="{{ avatar_form.avatar.id_for_label }}"
+          <label for="{{ profile_form.avatar.id_for_label }}"
                  class="block text-sm font-semibold text-slate-700 mb-1">
             Upload New Photo
           </label>
           <input type="file"
-                 id="{{ avatar_form.avatar.id_for_label }}"
-                 name="{{ avatar_form.avatar.html_name }}"
+                 id="{{ profile_form.avatar.id_for_label }}"
+                 name="{{ profile_form.avatar.html_name }}"
                  accept="image/*"
                  onchange="previewAvatar(event)"
                  class="block w-full text-sm text-slate-500
@@ -71,7 +71,7 @@
                         file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700
                         hover:file:bg-brand-100 file:cursor-pointer cursor-pointer transition-colors" />
           <p class="text-xs text-slate-400 mt-1.5">JPG, PNG or GIF. Max 5 MB.</p>
-          {% for error in avatar_form.avatar.errors %}
+          {% for error in profile_form.avatar.errors %}
           <p class="mt-1 text-xs text-red-600">{{ error }}</p>
           {% endfor %}
         </div>

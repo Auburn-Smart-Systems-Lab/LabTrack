@@ -25,7 +25,7 @@ class IncidentReportForm(forms.ModelForm):
 
 
 class IncidentUpdateForm(forms.ModelForm):
-    """Admin form to update the status or resolve an incident."""
+    """Update the status or resolve an incident."""
 
     class Meta:
         model = IncidentReport
@@ -40,6 +40,30 @@ class IncidentUpdateForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class IncidentAssignForm(forms.ModelForm):
+    """Assign a member to investigate or work on an incident."""
+
+    from apps.accounts.models import CustomUser
+
+    assigned_to = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        empty_label='-- Unassign --',
+        label='Assign to',
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.accounts.models import CustomUser
+        self.fields['assigned_to'].queryset = CustomUser.objects.filter(
+            is_active=True
+        ).order_by('first_name', 'last_name', 'username')
+
+    class Meta:
+        model = IncidentReport
+        fields = ['assigned_to']
 
 
 class MaintenanceLogForm(forms.ModelForm):

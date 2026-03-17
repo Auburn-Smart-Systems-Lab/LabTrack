@@ -10,6 +10,8 @@ class Reservation(models.Model):
     STATUS_CHOICES = [
         ('PENDING', 'Pending'),
         ('CONFIRMED', 'Confirmed'),
+        ('RETURN_PENDING', 'Return Pending'),
+        ('RETURNED', 'Returned'),
         ('CANCELLED', 'Cancelled'),
         ('COMPLETED', 'Completed'),
         ('EXPIRED', 'Expired'),
@@ -38,6 +40,9 @@ class Reservation(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     purpose = models.TextField(blank=True)
+    returned_date = models.DateTimeField(null=True, blank=True)
+    return_condition = models.CharField(max_length=20, blank=True)
+    return_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

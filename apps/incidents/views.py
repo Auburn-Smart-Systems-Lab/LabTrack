@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.activity.utils import log_activity
 from apps.incidents.forms import (
     CalibrationLogForm,
+    IncidentAssignForm,
     IncidentReportForm,
     IncidentUpdateForm,
     MaintenanceCompleteForm,
@@ -25,36 +26,37 @@ from apps.notifications.utils import notify, notify_admins
 
 @login_required
 def incident_list_view(request):
-    """Members see incidents they reported or for equipment they own; admins see all."""
-    if request.user.role == 'ADMIN':
-        incidents = IncidentReport.objects.select_related(
-            'equipment', 'reported_by'
-        ).order_by('-created_at')
-    else:
-        incidents = IncidentReport.objects.filter(
-            models.Q(reported_by=request.user) | models.Q(equipment__owner=request.user)
-        ).distinct().select_related('equipment', 'reported_by').order_by('-created_at')
+    """All members can see all incidents."""
+    qs = IncidentReport.objects.select_related('equipment', 'reported_by', 'assigned_to')
 
-    paginator = Paginator(incidents, 20)
+    severity = request.GET.get('severity', '').strip()
+    status = request.GET.get('status', '').strip()
+    if severity:
+        qs = qs.filter(severity=severity)
+    if status:
+        qs = qs.filter(status=status)
+
+    qs = qs.order_by('-created_at')
+    paginator = Paginator(qs, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'incidents/list.html', {
         'page_obj': page_obj,
+        'incidents': page_obj,
+        'severity_filter': severity,
+        'status_filter': status,
     })
 
 
 @login_required
 def incident_detail_view(request, pk):
-    """Show full details of a single incident report."""
-    incident = get_object_or_404(IncidentReport, pk=pk)
-
-    # Members can view incidents they reported or for equipment they own
-    if (request.user.role != 'ADMIN'
-            and incident.reported_by != request.user
-            and incident.equipment.owner != request.user):
-        messages.error(request, 'You do not have permission to view this incident.')
-        return redirect('incidents:list')
-
+    """All members can view any incident."""
+    incident = get_object_or_404(
+        IncidentReport.objects.select_related(
+            'equipment', 'reported_by', 'assigned_to', 'resolved_by'
+        ),
+        pk=pk,
+    )
     return render(request, 'incidents/detail.html', {'incident': incident})
 
 
@@ -103,14 +105,22 @@ def incident_create_view(request):
     })
 
 
+def _can_manage_incident(user, incident):
+    """Reporter, equipment owner, assignee, or admin can edit/resolve."""
+    return (
+        user.role == 'ADMIN'
+        or incident.reported_by == user
+        or incident.equipment.owner == user
+        or incident.assigned_to == user
+    )
+
+
 @login_required
 def incident_edit_view(request, pk):
-    """The reporter or an admin can edit an incident report."""
+    """Reporter, equipment owner, assignee, or admin can edit."""
     incident = get_object_or_404(IncidentReport, pk=pk)
 
-    if (request.user.role != 'ADMIN'
-            and incident.reported_by != request.user
-            and incident.equipment.owner != request.user):
+    if not _can_manage_incident(request.user, incident):
         messages.error(request, 'You do not have permission to edit this incident.')
         return redirect('incidents:detail', pk=pk)
 
@@ -142,12 +152,10 @@ def incident_edit_view(request, pk):
 
 @login_required
 def incident_resolve_view(request, pk):
-    """Resolve an incident — allowed by equipment owner or the reporter."""
+    """Reporter, equipment owner, assignee, or admin can resolve an incident."""
     incident = get_object_or_404(IncidentReport, pk=pk)
 
-    if (request.user.role != 'ADMIN'
-            and incident.reported_by != request.user
-            and incident.equipment.owner != request.user):
+    if not _can_manage_incident(request.user, incident):
         messages.error(request, 'You do not have permission to resolve this incident.')
         return redirect('incidents:detail', pk=pk)
 
@@ -197,6 +205,63 @@ def incident_resolve_view(request, pk):
         form = IncidentUpdateForm(instance=incident)
 
     return render(request, 'incidents/resolve.html', {
+        'form': form,
+        'incident': incident,
+    })
+
+
+@login_required
+def incident_assign_view(request, pk):
+    """Reporter or equipment owner can assign someone to investigate an incident."""
+    incident = get_object_or_404(IncidentReport, pk=pk)
+
+    if not _can_manage_incident(request.user, incident):
+        messages.error(request, 'You do not have permission to assign this incident.')
+        return redirect('incidents:detail', pk=pk)
+
+    if request.method == 'POST':
+        form = IncidentAssignForm(request.POST, instance=incident)
+        if form.is_valid():
+            prev_assignee = incident.assigned_to
+            incident = form.save()
+
+            log_activity(
+                actor=request.user,
+                action='OTHER',
+                description=(
+                    f'Incident "{incident.title}" assigned to '
+                    f'{incident.assigned_to.full_name if incident.assigned_to else "nobody"} '
+                    f'by {request.user.username}.'
+                ),
+                content_type_label='incidentreport',
+                object_id=incident.pk,
+                object_repr=str(incident),
+                request=request,
+            )
+
+            if incident.assigned_to and incident.assigned_to != request.user:
+                notify(
+                    recipient=incident.assigned_to,
+                    title=f'Incident Assigned to You: {incident.title}',
+                    message=(
+                        f'{request.user.full_name or request.user.username} assigned you to '
+                        f'investigate incident "{incident.title}" on {incident.equipment.name}.'
+                    ),
+                    level='info',
+                    link=f'/incidents/{incident.pk}/',
+                )
+
+            # Auto-set status to INVESTIGATING if it was OPEN
+            if incident.status == 'OPEN' and incident.assigned_to:
+                incident.status = 'INVESTIGATING'
+                incident.save(update_fields=['status'])
+
+            messages.success(request, 'Incident assignment updated.')
+            return redirect('incidents:detail', pk=incident.pk)
+    else:
+        form = IncidentAssignForm(instance=incident)
+
+    return render(request, 'incidents/assign.html', {
         'form': form,
         'incident': incident,
     })

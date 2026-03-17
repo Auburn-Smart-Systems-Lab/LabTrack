@@ -283,6 +283,7 @@ def borrow_return_view(request, pk):
                             f'"{borrow.item}". Please confirm the return.'
                         ),
                         level='info',
+                        link=f'/borrowing/return-queue/',
                     )
             elif borrow.kit:
                 # Kit — create per-owner approval records and notify each distinct owner.
@@ -305,6 +306,7 @@ def borrow_return_view(request, pk):
                                 f'kit "{borrow.kit}". Please confirm your items.'
                             ),
                             level='info',
+                            link=f'/borrowing/return-queue/',
                         )
                         notified_owners.add(owner.pk)
 
@@ -348,6 +350,7 @@ def borrow_return_confirm_view(request, pk):
             title='Return Confirmed',
             message=f'Your return of {borrow.item} has been confirmed. Thank you!',
             level='success',
+            link=f'/borrowing/{borrow.pk}/',
         )
 
         waitlist_qs = WaitlistEntry.objects.filter(
@@ -360,6 +363,7 @@ def borrow_return_confirm_view(request, pk):
                 title='Item Now Available',
                 message=f'{borrow.item} is now available. You are next on the waitlist!',
                 level='success',
+                link=f'/borrowing/create/',
             )
             next_entry.notified = True
             next_entry.save(update_fields=['notified'])
@@ -440,6 +444,7 @@ def kit_item_return_confirm_view(request, approval_pk):
                 title='Kit Return Confirmed',
                 message=f'Your return of kit "{borrow.kit}" has been fully confirmed. Thank you!',
                 level='success',
+                link=f'/borrowing/{borrow.pk}/',
             )
 
             # Notify next on waitlist.
@@ -452,6 +457,7 @@ def kit_item_return_confirm_view(request, approval_pk):
                     title='Kit Now Available',
                     message=f'Kit "{borrow.kit}" is now available. You are next on the waitlist!',
                     level='success',
+                    link=f'/kits/{borrow.kit.pk}/',
                 )
                 next_entry.notified = True
                 next_entry.save(update_fields=['notified'])

@@ -26,6 +26,7 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reported By</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
             <th class="px-6 py-3"></th>
           </tr>
@@ -50,6 +51,13 @@
               {% else %}<span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">Closed</span>{% endif %}
             </td>
             <td class="px-6 py-4 text-sm text-gray-600">{{ incident.reported_by.full_name|default:"—" }}</td>
+            <td class="px-6 py-4 text-sm">
+              {% if incident.assigned_to %}
+                <span class="text-indigo-700 font-medium">{{ incident.assigned_to.full_name }}</span>
+              {% else %}
+                <span class="text-gray-400 italic">Unassigned</span>
+              {% endif %}
+            </td>
             <td class="px-6 py-4 text-sm text-gray-500">{{ incident.created_at|date:"M d, Y" }}</td>
             <td class="px-6 py-4 text-right">
               <a href="{% url 'incidents:detail' incident.pk %}" class="text-xs text-indigo-600 hover:underline">View</a>

@@ -34,6 +34,19 @@
           {% endif %}
         </div>
         <div class="flex gap-2">
+          {% if kit.is_shared %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            Shared
+          </span>
+          {% else %}
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
+            Personal
+          </span>
+          {% endif %}
           {% if not kit.is_active %}
           <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-white">
             Inactive
@@ -42,7 +55,7 @@
         </div>
       </div>
       <div class="mt-4 flex items-center gap-4 text-xs text-indigo-200">
-        <span>Created by {{ kit.created_by.get_full_name|default:kit.created_by.username|default:"System" }}</span>
+        <span>Created by {{ kit.created_by.full_name|default:kit.created_by.username|default:"System" }}</span>
         <span>•</span>
         <span>{{ kit.created_at|date:"F j, Y" }}</span>
       </div>
@@ -58,7 +71,7 @@
         </svg>
         Borrow Kit
       </a>
-      {% if request.user.is_staff %}
+      {% if kit.created_by == request.user %}
       <a href="{% url 'kits:edit' kit.pk %}"
          class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,7 +144,7 @@
               {% else %}
                 <span class="w-2 h-2 rounded-full bg-red-400" title="{{ kit_item.equipment.get_status_display }}"></span>
               {% endif %}
-              {% if request.user.is_staff %}
+              {% if kit.created_by == request.user %}
               <form method="post" action="{% url 'kits:remove_item' kit.pk kit_item.pk %}"
                     onsubmit="return confirm('Remove this item from the kit?')">
                 {% csrf_token %}
@@ -143,7 +156,7 @@
           {% empty %}
           <div class="px-6 py-10 text-center text-sm text-gray-400">
             No items in this kit yet.
-            {% if request.user.is_staff %}
+            {% if kit.created_by == request.user %}
             <a href="{% url 'kits:add_item' kit.pk %}" class="text-indigo-600 hover:underline ml-1">Add one.</a>
             {% endif %}
           </div>
@@ -164,7 +177,7 @@
             <div class="flex items-start justify-between">
               <div>
                 <p class="text-xs font-medium text-gray-800">
-                  {{ res.requester.get_full_name|default:res.requester.username }}
+                  {{ res.requester.full_name|default:res.requester.username }}
                 </p>
                 <p class="text-xs text-gray-400 mt-0.5">
                   {{ res.start_date|date:"M d" }} – {{ res.end_date|date:"M d, Y" }}

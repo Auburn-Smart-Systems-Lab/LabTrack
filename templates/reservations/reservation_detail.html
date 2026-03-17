@@ -17,30 +17,24 @@
         {% if reservation.equipment %}{{ reservation.equipment.name }}{% elif reservation.kit %}{{ reservation.kit.name }}{% endif %}
       </h1>
       <p class="mt-1 text-sm text-gray-500">
-        Reserved by {{ reservation.requester.get_full_name|default:reservation.requester.username }}
+        Reserved by {{ reservation.requester.full_name|default:reservation.requester.username }}
       </p>
     </div>
     <div class="flex items-center gap-2">
       {% if reservation.status == 'CONFIRMED' %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-          Confirmed
-        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">Confirmed</span>
       {% elif reservation.status == 'PENDING' %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-          Pending
-        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">Pending</span>
+      {% elif reservation.status == 'RETURN_PENDING' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">Return Pending</span>
+      {% elif reservation.status == 'RETURNED' %}
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">Returned</span>
       {% elif reservation.status == 'CANCELLED' %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-          Cancelled
-        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">Cancelled</span>
       {% elif reservation.status == 'COMPLETED' %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-          Completed
-        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">Completed</span>
       {% elif reservation.status == 'EXPIRED' %}
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-          Expired
-        </span>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">Expired</span>
       {% endif %}
     </div>
   </div>
@@ -103,7 +97,7 @@
       <div class="px-6 py-4 grid grid-cols-3 gap-4">
         <dt class="text-sm font-medium text-gray-500">Requested By</dt>
         <dd class="col-span-2 text-sm text-gray-900">
-          {{ reservation.requester.get_full_name|default:reservation.requester.username }}
+          {{ reservation.requester.full_name|default:reservation.requester.username }}
           <span class="text-gray-400 ml-1">({{ reservation.requester.email }})</span>
         </dd>
       </div>
@@ -125,8 +119,47 @@
   <!-- Actions -->
   <div class="flex flex-wrap items-center gap-3">
 
+    {% if reservation.status == 'CONFIRMED' and reservation.requester == request.user %}
+    <!-- Return Item -->
+    <a href="{% url 'reservations:return' reservation.pk %}"
+       class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+      </svg>
+      Return Item
+    </a>
+    {% endif %}
+
+    {% if reservation.status == 'RETURN_PENDING' %}
+      {% if reservation.equipment and reservation.equipment.owner == request.user %}
+      <a href="{% url 'reservations:return_confirm' reservation.pk %}"
+         class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Confirm Return
+      </a>
+      {% elif reservation.kit and reservation.kit.created_by == request.user %}
+      <a href="{% url 'reservations:return_confirm' reservation.pk %}"
+         class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Confirm Return
+      </a>
+      {% elif request.user.is_admin %}
+      <a href="{% url 'reservations:return_confirm' reservation.pk %}"
+         class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        Confirm Return
+      </a>
+      {% endif %}
+    {% endif %}
+
     {% if reservation.status == 'CONFIRMED' %}
-    <!-- Cancel Button (with confirmation) -->
     <form method="post" action="{% url 'reservations:cancel' reservation.pk %}"
           onsubmit="return confirm('Are you sure you want to cancel this reservation? This cannot be undone.')">
       {% csrf_token %}
@@ -148,19 +181,6 @@
       <button type="submit"
               class="inline-flex items-center px-4 py-2 bg-red-50 text-red-700 border border-red-300 rounded-lg text-sm font-medium hover:bg-red-100 transition">
         Cancel Request
-      </button>
-    </form>
-    {% endif %}
-
-    {% if request.user.is_staff and reservation.status == 'PENDING' %}
-    <form method="post" action="{% url 'reservations:confirm' reservation.pk %}">
-      {% csrf_token %}
-      <button type="submit"
-              class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        Confirm Reservation
       </button>
     </form>
     {% endif %}

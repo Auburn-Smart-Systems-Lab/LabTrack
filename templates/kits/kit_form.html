@@ -68,25 +68,28 @@
         </p>
       </div>
 
-      <!-- Active Toggle -->
-      {% if form.is_active %}
-      <div class="mb-5">
-        <div class="flex items-center gap-3">
+      <!-- Sharing -->
+      <div class="mb-5 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+        <div class="flex items-start gap-3">
           <input type="checkbox"
-                 name="{{ form.is_active.html_name }}"
-                 id="{{ form.is_active.id_for_label }}"
-                 {% if form.is_active.value %}checked{% endif %}
-                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-          <label for="{{ form.is_active.id_for_label }}"
-                 class="text-sm font-medium text-gray-700">
-            Kit is active (visible and borrowable by users)
-          </label>
+                 name="{{ form.is_shared.html_name }}"
+                 id="{{ form.is_shared.id_for_label }}"
+                 {% if form.is_shared.value %}checked{% endif %}
+                 class="mt-0.5 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+          <div>
+            <label for="{{ form.is_shared.id_for_label }}"
+                   class="text-sm font-semibold text-gray-700 cursor-pointer">
+              Share this kit with all members
+            </label>
+            <p class="text-xs text-gray-500 mt-0.5">
+              When shared, other members can view and borrow this kit. Leave unchecked to keep it personal (only you can see it).
+            </p>
+          </div>
         </div>
-        {% for error in form.is_active.errors %}
+        {% for error in form.is_shared.errors %}
           <p class="mt-1 text-xs text-red-600">{{ error }}</p>
         {% endfor %}
       </div>
-      {% endif %}
 
       <!-- Submit -->
       <div class="pt-5 border-t border-gray-100 flex items-center gap-3">

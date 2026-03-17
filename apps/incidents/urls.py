@@ -13,6 +13,7 @@ urlpatterns = [
     path('<int:pk>/', views.incident_detail_view, name='detail'),
     path('<int:pk>/edit/', views.incident_edit_view, name='edit'),
     path('<int:pk>/resolve/', views.incident_resolve_view, name='resolve'),
+    path('<int:pk>/assign/', views.incident_assign_view, name='assign'),
 
     # Maintenance
     path('maintenance/', views.maintenance_list_view, name='maintenance_list'),

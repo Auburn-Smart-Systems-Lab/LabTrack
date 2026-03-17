@@ -35,6 +35,13 @@ class IncidentReport(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='OPEN')
     image = models.ImageField(upload_to='incidents/', blank=True, null=True)
     resolution = models.TextField(blank=True)
+    assigned_to = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_incidents',
+    )
     resolved_by = models.ForeignKey(
         'accounts.CustomUser',
         on_delete=models.SET_NULL,

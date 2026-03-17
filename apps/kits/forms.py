@@ -11,7 +11,7 @@ class KitForm(forms.ModelForm):
 
     class Meta:
         model = Kit
-        fields = ['name', 'description']
+        fields = ['name', 'description', 'is_shared']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 4}),
         }

@@ -14,6 +14,7 @@ class Kit(models.Model):
         related_name='created_kits',
     )
     is_active = models.BooleanField(default=True)
+    is_shared = models.BooleanField(default=False, help_text='Make this kit visible and borrowable by all members.')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

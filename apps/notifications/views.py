@@ -3,7 +3,7 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -18,11 +18,6 @@ def notification_list_view(request):
     notifications = Notification.objects.filter(
         recipient=request.user
     ).order_by('-created_at')
-
-    # Mark all unread notifications as read on open
-    unread_qs = notifications.filter(is_read=False)
-    if unread_qs.exists():
-        unread_qs.update(is_read=True, read_at=timezone.now())
 
     paginator = Paginator(notifications, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -43,11 +38,14 @@ def mark_read_view(request, pk):
         notification.read_at = timezone.now()
         notification.save(update_fields=['is_read', 'read_at'])
 
-    unread_count = Notification.objects.filter(
-        recipient=request.user, is_read=False
-    ).count()
+    # AJAX callers get JSON; regular form submissions get a redirect.
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        unread_count = Notification.objects.filter(
+            recipient=request.user, is_read=False
+        ).count()
+        return JsonResponse({'success': True, 'unread_count': unread_count})
 
-    return JsonResponse({'success': True, 'unread_count': unread_count})
+    return redirect('notifications:list')
 
 
 @login_required
@@ -58,7 +56,10 @@ def mark_all_read_view(request):
         recipient=request.user, is_read=False
     ).update(is_read=True, read_at=timezone.now())
 
-    return JsonResponse({'success': True, 'marked_count': updated})
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'marked_count': updated})
+
+    return redirect('notifications:list')
 
 
 @login_required
