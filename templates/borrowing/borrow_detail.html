@@ -10,8 +10,8 @@
       <p class="text-sm text-gray-500 mt-1">Submitted {{ borrow.requested_date|date:"M d, Y H:i" }}</p>
     </div>
     <div>
-      {% if borrow.status == 'PENDING' %}
-        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-medium rounded-full">Pending</span>
+      {% if borrow.status == 'RETURN_PENDING' %}
+        <span class="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full">Return Pending</span>
       {% elif borrow.status == 'APPROVED' or borrow.status == 'ACTIVE' %}
         <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">{{ borrow.get_status_display }}</span>
       {% elif borrow.status == 'RETURNED' %}
@@ -87,18 +87,16 @@
 
   <!-- Actions -->
   <div class="flex gap-3 flex-wrap">
-    {% if user.is_admin and borrow.status == 'PENDING' %}
-      <form method="post" action="{% url 'borrowing:approve' borrow.pk %}">
-        {% csrf_token %}
-        <button class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">Approve</button>
-      </form>
-      <form method="post" action="{% url 'borrowing:reject' borrow.pk %}">
-        {% csrf_token %}
-        <button class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700">Reject</button>
-      </form>
-    {% endif %}
     {% if borrow.status == 'APPROVED' or borrow.status == 'ACTIVE' %}
-      <a href="{% url 'borrowing:return' borrow.pk %}" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">Return Item</a>
+      {% if borrow.borrower == user %}
+        <a href="{% url 'borrowing:return' borrow.pk %}" class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700">Return Item</a>
+      {% endif %}
+    {% endif %}
+    {% if user.is_admin and borrow.status == 'RETURN_PENDING' %}
+      <form method="post" action="{% url 'borrowing:return_confirm' borrow.pk %}">
+        {% csrf_token %}
+        <button class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">Confirm Return</button>
+      </form>
     {% endif %}
     <a href="{% url 'borrowing:list' %}" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50">Back to List</a>
   </div>

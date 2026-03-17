@@ -190,14 +190,22 @@ def reservation_cancel_view(request, pk):
 
 @login_required
 def reservation_confirm_view(request, pk):
-    """Confirm a pending reservation (admin only)."""
+    """Confirm a pending reservation — allowed by the equipment/kit owner."""
     reservation = get_object_or_404(
         Reservation.objects.select_related('requester', 'equipment', 'kit'),
         pk=pk,
     )
 
-    if not _is_admin(request.user):
-        messages.error(request, 'Only admins can confirm reservations.')
+    # Determine the owner of the reserved item.
+    if reservation.equipment:
+        item_owner = reservation.equipment.owner
+    elif reservation.kit:
+        item_owner = reservation.kit.created_by
+    else:
+        item_owner = None
+
+    if request.user != item_owner and not _is_admin(request.user):
+        messages.error(request, 'Only the equipment owner can confirm this reservation.')
         return redirect('reservations:detail', pk=reservation.pk)
 
     if reservation.status != 'PENDING':

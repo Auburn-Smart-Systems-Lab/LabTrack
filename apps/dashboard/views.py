@@ -8,7 +8,7 @@ from django.shortcuts import redirect, render
 
 from apps.accounts.decorators import admin_required
 from apps.activity.models import ActivityLog
-from apps.borrowing.models import BorrowRequest
+from apps.borrowing.models import BorrowRequest, KitItemReturnApproval
 from apps.consumables.models import Consumable
 from apps.equipment.models import Equipment
 from apps.incidents.models import IncidentReport
@@ -36,10 +36,24 @@ def member_dashboard_view(request):
         status__in=['APPROVED', 'ACTIVE'],
     ).select_related('equipment', 'kit').order_by('due_date')
 
-    pending_borrows = BorrowRequest.objects.filter(
+    # Borrows submitted for return, awaiting owner confirmation
+    my_pending_returns = BorrowRequest.objects.filter(
         borrower=user,
-        status='PENDING',
-    ).select_related('equipment', 'kit').order_by('-requested_date')
+        status='RETURN_PENDING',
+    ).select_related('equipment', 'kit').order_by('-returned_date')
+
+    # Returns on equipment the user owns — needs their confirmation
+    return_approvals = BorrowRequest.objects.filter(
+        status='RETURN_PENDING',
+        equipment__owner=user,
+    ).select_related('borrower', 'equipment').order_by('returned_date')
+
+    # Kit item return approvals assigned to this user
+    kit_item_approvals = KitItemReturnApproval.objects.filter(
+        owner=user,
+        confirmed_by__isnull=True,
+        borrow_request__status='RETURN_PENDING',
+    ).select_related('borrow_request__borrower', 'borrow_request__kit', 'equipment')
 
     upcoming_reservations = Reservation.objects.filter(
         requester=user,
@@ -59,7 +73,9 @@ def member_dashboard_view(request):
 
     return render(request, 'dashboard/member.html', {
         'active_borrows': active_borrows,
-        'pending_borrows': pending_borrows,
+        'my_pending_returns': my_pending_returns,
+        'return_approvals': return_approvals,
+        'kit_item_approvals': kit_item_approvals,
         'upcoming_reservations': upcoming_reservations,
         'recent_notifications': recent_notifications,
         'recent_activity': recent_activity,
@@ -74,7 +90,10 @@ def admin_dashboard_view(request):
     # Core counts
     total_equipment = Equipment.objects.filter(is_active=True).count()
     available_equipment = Equipment.objects.filter(status='AVAILABLE', is_active=True).count()
-    pending_approvals = BorrowRequest.objects.filter(status='PENDING').count()
+    # Admins handle kit returns (equipment returns go to equipment owners)
+    pending_approvals = BorrowRequest.objects.filter(
+        status='RETURN_PENDING', kit__isnull=False
+    ).count()
     open_incidents = IncidentReport.objects.filter(
         status__in=['OPEN', 'INVESTIGATING']
     ).count()

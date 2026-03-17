@@ -9,10 +9,6 @@ from apps.kits.forms import KitForm, KitItemForm
 from apps.kits.models import Kit, KitItem
 
 
-def _is_admin(user):
-    return user.is_authenticated and user.role == 'ADMIN'
-
-
 @login_required
 def kit_list_view(request):
     """List all active kits."""
@@ -70,7 +66,7 @@ def kit_edit_view(request, pk):
     """Edit an existing kit."""
     kit = get_object_or_404(Kit, pk=pk)
 
-    if not _is_admin(request.user) and kit.created_by != request.user:
+    if kit.created_by != request.user:
         messages.error(request, 'You do not have permission to edit this kit.')
         return redirect('kits:detail', pk=kit.pk)
 
@@ -102,7 +98,7 @@ def kit_delete_view(request, pk):
     """Delete a kit (admin or the creator only)."""
     kit = get_object_or_404(Kit, pk=pk)
 
-    if not _is_admin(request.user) and kit.created_by != request.user:
+    if kit.created_by != request.user:
         messages.error(request, 'You do not have permission to delete this kit.')
         return redirect('kits:detail', pk=kit.pk)
 
@@ -120,7 +116,7 @@ def kit_item_add_view(request, pk):
     """Add a piece of equipment to a kit."""
     kit = get_object_or_404(Kit, pk=pk)
 
-    if not _is_admin(request.user) and kit.created_by != request.user:
+    if kit.created_by != request.user:
         messages.error(request, 'You do not have permission to modify this kit.')
         return redirect('kits:detail', pk=kit.pk)
 
@@ -160,7 +156,7 @@ def kit_item_remove_view(request, pk, item_pk):
     kit = get_object_or_404(Kit, pk=pk)
     item = get_object_or_404(KitItem, pk=item_pk, kit=kit)
 
-    if not _is_admin(request.user) and kit.created_by != request.user:
+    if kit.created_by != request.user:
         messages.error(request, 'You do not have permission to modify this kit.')
         return redirect('kits:detail', pk=kit.pk)
 

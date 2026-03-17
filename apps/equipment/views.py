@@ -6,7 +6,6 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.accounts.decorators import admin_required
 from apps.activity.utils import log_activity
 from apps.equipment.forms import (
     CategoryForm,
@@ -184,10 +183,13 @@ def equipment_edit_view(request, pk):
 
 
 @login_required
-@admin_required
 def equipment_delete_view(request, pk):
-    """Soft-delete (deactivate) a piece of equipment (admin only)."""
+    """Soft-delete (deactivate) a piece of equipment. Owner only."""
     equipment = get_object_or_404(Equipment, pk=pk)
+
+    if request.user != equipment.owner:
+        messages.error(request, 'Only the equipment owner can delete it.')
+        return redirect('equipment:detail', pk=pk)
 
     if request.method == 'POST':
         equipment_name = equipment.name
@@ -252,10 +254,13 @@ def lifecycle_timeline_view(request, pk):
 # ---------------------------------------------------------------------------
 
 @login_required
-@admin_required
 def equipment_move_view(request, pk):
-    """Log a movement of equipment from one location to another (admin only)."""
+    """Log a movement of equipment from one location to another. Owner only."""
     equipment = get_object_or_404(Equipment, pk=pk)
+
+    if request.user != equipment.owner:
+        messages.error(request, 'Only the equipment owner can move it.')
+        return redirect('equipment:detail', pk=pk)
 
     if request.method == 'POST':
         form = MovementLogForm(request.POST)
@@ -313,9 +318,8 @@ def category_list_view(request):
 
 
 @login_required
-@admin_required
 def category_create_view(request):
-    """Create a new equipment category (admin only)."""
+    """Create a new equipment category."""
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         if form.is_valid():
@@ -349,9 +353,8 @@ def location_list_view(request):
 
 
 @login_required
-@admin_required
 def location_create_view(request):
-    """Create a new lab location (admin only)."""
+    """Create a new lab location."""
     if request.method == 'POST':
         form = LocationForm(request.POST)
         if form.is_valid():

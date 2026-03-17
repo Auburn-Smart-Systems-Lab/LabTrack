@@ -17,12 +17,12 @@
       {% if user.is_authenticated %}
       <div class="flex gap-2">
         {% if user.is_admin %}
-        <a href="{% url 'borrowing:queue' %}"
+        <a href="{% url 'borrowing:return_queue' %}"
            class="inline-flex items-center px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium rounded-lg border border-amber-200 transition-colors duration-150">
           <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
           </svg>
-          Approval Queue
+          Return Queue
           {% if pending_count %}
           <span class="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">{{ pending_count }}</span>
           {% endif %}
@@ -56,11 +56,11 @@
             All
             {% if total_count %}<span class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ total_count }}</span>{% endif %}
           </a>
-          <a href="?status=PENDING"
+          <a href="?status=RETURN_PENDING"
              class="whitespace-nowrap py-4 px-4 border-b-2 text-sm font-medium transition-colors duration-150
-             {% if request.GET.status == 'PENDING' %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
-            Pending
-            {% if pending_count %}<span class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700">{{ pending_count }}</span>{% endif %}
+             {% if request.GET.status == 'RETURN_PENDING' %}border-indigo-500 text-indigo-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+            Return Pending
+            {% if pending_count %}<span class="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">{{ pending_count }}</span>{% endif %}
           </a>
           <a href="?status=ACTIVE"
              class="whitespace-nowrap py-4 px-4 border-b-2 text-sm font-medium transition-colors duration-150

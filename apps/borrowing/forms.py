@@ -7,6 +7,7 @@ from apps.borrowing.models import BorrowRequest
 from apps.equipment.models import Equipment
 from apps.kits.models import Kit
 from apps.projects.models import Project
+from apps.reservations.models import Reservation
 
 
 class BorrowRequestForm(forms.ModelForm):
@@ -78,7 +79,64 @@ class BorrowRequestForm(forms.ModelForm):
         if due_date and due_date < timezone.now().date():
             raise forms.ValidationError('Due date must be today or a future date.')
 
+        # Check for conflicting confirmed reservations.
+        # A borrow from today through due_date conflicts with a reservation if:
+        # reservation.start_date <= due_date AND reservation.end_date >= today
+        today = timezone.now().date()
+        if equipment and due_date:
+            conflict = Reservation.objects.filter(
+                equipment=equipment,
+                status='CONFIRMED',
+                start_date__lte=due_date,
+                end_date__gte=today,
+            ).first()
+            if conflict:
+                raise forms.ValidationError(
+                    f'"{equipment.name}" has a confirmed reservation from '
+                    f'{conflict.start_date} to {conflict.end_date}. '
+                    f'Your due date must be before {conflict.start_date}.'
+                )
+
+        if kit and due_date:
+            for kit_item in kit.items.select_related('equipment'):
+                conflict = Reservation.objects.filter(
+                    equipment=kit_item.equipment,
+                    status='CONFIRMED',
+                    start_date__lte=due_date,
+                    end_date__gte=today,
+                ).first()
+                if conflict:
+                    raise forms.ValidationError(
+                        f'"{kit_item.equipment.name}" (in kit "{kit.name}") has a confirmed '
+                        f'reservation from {conflict.start_date} to {conflict.end_date}. '
+                        f'Your due date must be before {conflict.start_date}.'
+                    )
+
         return cleaned_data
+
+
+class BulkBorrowForm(forms.Form):
+    """Shared purpose/due_date when borrowing multiple equipment items at once."""
+
+    project = forms.ModelChoiceField(
+        queryset=Project.objects.filter(status='ACTIVE'),
+        required=False,
+        empty_label='-- No Project --',
+    )
+    purpose = forms.CharField(
+        widget=forms.Textarea(attrs={'rows': 3}),
+        help_text='Why are you borrowing these items?',
+    )
+    due_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        help_text='Return all items by this date.',
+    )
+
+    def clean_due_date(self):
+        due_date = self.cleaned_data.get('due_date')
+        if due_date and due_date < timezone.now().date():
+            raise forms.ValidationError('Due date must be today or a future date.')
+        return due_date
 
 
 class ReturnForm(forms.Form):

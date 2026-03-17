@@ -3,10 +3,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db import models
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.accounts.decorators import admin_required
 from apps.activity.utils import log_activity
 from apps.incidents.forms import (
     CalibrationLogForm,
@@ -25,15 +25,15 @@ from apps.notifications.utils import notify, notify_admins
 
 @login_required
 def incident_list_view(request):
-    """Members see their own reported incidents; admins see all."""
+    """Members see incidents they reported or for equipment they own; admins see all."""
     if request.user.role == 'ADMIN':
         incidents = IncidentReport.objects.select_related(
             'equipment', 'reported_by'
         ).order_by('-created_at')
     else:
         incidents = IncidentReport.objects.filter(
-            reported_by=request.user
-        ).select_related('equipment', 'reported_by').order_by('-created_at')
+            models.Q(reported_by=request.user) | models.Q(equipment__owner=request.user)
+        ).distinct().select_related('equipment', 'reported_by').order_by('-created_at')
 
     paginator = Paginator(incidents, 20)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -48,8 +48,10 @@ def incident_detail_view(request, pk):
     """Show full details of a single incident report."""
     incident = get_object_or_404(IncidentReport, pk=pk)
 
-    # Members can only view their own incidents
-    if request.user.role != 'ADMIN' and incident.reported_by != request.user:
+    # Members can view incidents they reported or for equipment they own
+    if (request.user.role != 'ADMIN'
+            and incident.reported_by != request.user
+            and incident.equipment.owner != request.user):
         messages.error(request, 'You do not have permission to view this incident.')
         return redirect('incidents:list')
 
@@ -106,7 +108,9 @@ def incident_edit_view(request, pk):
     """The reporter or an admin can edit an incident report."""
     incident = get_object_or_404(IncidentReport, pk=pk)
 
-    if request.user.role != 'ADMIN' and incident.reported_by != request.user:
+    if (request.user.role != 'ADMIN'
+            and incident.reported_by != request.user
+            and incident.equipment.owner != request.user):
         messages.error(request, 'You do not have permission to edit this incident.')
         return redirect('incidents:detail', pk=pk)
 
@@ -136,10 +140,16 @@ def incident_edit_view(request, pk):
     })
 
 
-@admin_required
+@login_required
 def incident_resolve_view(request, pk):
-    """Admin only: resolve an incident, optionally updating equipment condition."""
+    """Resolve an incident — allowed by equipment owner or the reporter."""
     incident = get_object_or_404(IncidentReport, pk=pk)
+
+    if (request.user.role != 'ADMIN'
+            and incident.reported_by != request.user
+            and incident.equipment.owner != request.user):
+        messages.error(request, 'You do not have permission to resolve this incident.')
+        return redirect('incidents:detail', pk=pk)
 
     if request.method == 'POST':
         form = IncidentUpdateForm(request.POST, instance=incident)
@@ -198,22 +208,21 @@ def incident_resolve_view(request, pk):
 
 @login_required
 def maintenance_list_view(request):
-    """Admins see all maintenance logs; members see logs for equipment they own or borrowed."""
+    """Members see maintenance logs for equipment they own or currently borrow; admins see all."""
     if request.user.role == 'ADMIN':
         logs = MaintenanceLog.objects.select_related(
             'equipment', 'performed_by'
         ).order_by('-scheduled_date')
     else:
-        owned_equipment_ids = request.user.owned_equipment.values_list('pk', flat=True)
-        borrowed_equipment_ids = (
+        owned_ids = request.user.owned_equipment.values_list('pk', flat=True)
+        borrowed_ids = (
             request.user.borrow_requests
             .filter(status__in=['APPROVED', 'ACTIVE'])
             .exclude(equipment__isnull=True)
             .values_list('equipment__pk', flat=True)
         )
-        all_ids = list(owned_equipment_ids) + list(borrowed_equipment_ids)
         logs = MaintenanceLog.objects.filter(
-            equipment__pk__in=all_ids
+            equipment__pk__in=list(owned_ids) + list(borrowed_ids)
         ).select_related('equipment', 'performed_by').order_by('-scheduled_date')
 
     paginator = Paginator(logs, 20)
@@ -229,9 +238,9 @@ def maintenance_detail_view(request, pk):
     return render(request, 'incidents/maintenance_detail.html', {'log': log})
 
 
-@admin_required
+@login_required
 def maintenance_create_view(request):
-    """Admin only: schedule a new maintenance activity."""
+    """Schedule a new maintenance activity (any logged-in user)."""
     if request.method == 'POST':
         form = MaintenanceLogForm(request.POST)
         if form.is_valid():
@@ -274,10 +283,14 @@ def maintenance_create_view(request):
     })
 
 
-@admin_required
+@login_required
 def maintenance_complete_view(request, pk):
-    """Admin only: mark a maintenance log as completed and update equipment status."""
+    """Mark a maintenance log as completed — equipment owner or admin."""
     log = get_object_or_404(MaintenanceLog, pk=pk)
+
+    if request.user.role != 'ADMIN' and log.equipment.owner != request.user:
+        messages.error(request, 'Only the equipment owner can complete this maintenance.')
+        return redirect('incidents:maintenance_detail', pk=pk)
 
     if request.method == 'POST':
         form = MaintenanceCompleteForm(request.POST, instance=log)
@@ -321,15 +334,14 @@ def maintenance_complete_view(request, pk):
 
 @login_required
 def calibration_list_view(request):
-    """List all calibration logs; admins see all, members see their equipment."""
+    """List calibration logs; admins see all, members see their owned equipment."""
     if request.user.role == 'ADMIN':
         logs = CalibrationLog.objects.select_related(
             'equipment', 'calibrated_by'
         ).order_by('-calibration_date')
     else:
-        owned_equipment_ids = request.user.owned_equipment.values_list('pk', flat=True)
         logs = CalibrationLog.objects.filter(
-            equipment__pk__in=owned_equipment_ids
+            equipment__owner=request.user
         ).select_related('equipment', 'calibrated_by').order_by('-calibration_date')
 
     paginator = Paginator(logs, 20)
@@ -338,9 +350,9 @@ def calibration_list_view(request):
     return render(request, 'incidents/calibration_list.html', {'page_obj': page_obj})
 
 
-@admin_required
+@login_required
 def calibration_create_view(request):
-    """Admin only: record a new calibration log."""
+    """Record a new calibration log (any logged-in user)."""
     if request.method == 'POST':
         form = CalibrationLogForm(request.POST)
         if form.is_valid():

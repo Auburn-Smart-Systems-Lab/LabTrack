@@ -8,10 +8,9 @@ class BorrowRequest(models.Model):
     """
 
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
         ('APPROVED', 'Approved'),
-        ('REJECTED', 'Rejected'),
-        ('ACTIVE', 'Active'),       # approved and item picked up
+        ('ACTIVE', 'Active'),           # item physically picked up
+        ('RETURN_PENDING', 'Return Pending'),  # borrower submitted return, awaiting admin confirmation
         ('RETURNED', 'Returned'),
         ('OVERDUE', 'Overdue'),
         ('CANCELLED', 'Cancelled'),
@@ -81,3 +80,37 @@ class BorrowRequest(models.Model):
 
     class Meta:
         ordering = ['-requested_date']
+
+
+class KitItemReturnApproval(models.Model):
+    """Per-equipment-owner approval record when a kit borrow is returned."""
+    borrow_request = models.ForeignKey(
+        'BorrowRequest',
+        on_delete=models.CASCADE,
+        related_name='kit_item_approvals',
+    )
+    equipment = models.ForeignKey(
+        'equipment.Equipment',
+        on_delete=models.CASCADE,
+        related_name='kit_return_approvals',
+    )
+    owner = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.CASCADE,
+        related_name='kit_return_approvals_to_confirm',
+    )
+    confirmed_by = models.ForeignKey(
+        'accounts.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='kit_return_approvals_confirmed',
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('borrow_request', 'equipment')
+
+    @property
+    def is_confirmed(self):
+        return self.confirmed_by is not None

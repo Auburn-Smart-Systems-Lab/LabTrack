@@ -41,8 +41,8 @@
         </svg>
       </div>
       <div>
-        <p class="text-2xl font-bold text-slate-800">{{ pending_borrows.count }}</p>
-        <p class="text-sm text-slate-500 font-medium">Pending Requests</p>
+        <p class="text-2xl font-bold text-slate-800">{{ return_approvals.count|add:kit_item_approvals.count }}</p>
+        <p class="text-sm text-slate-500 font-medium">Returns to Approve</p>
       </div>
     </div>
 
@@ -169,6 +169,39 @@
     </div>
 
   </div>
+
+  <!-- ── Return Approvals (visible when user owns equipment being returned) ── -->
+  {% if return_approvals or kit_item_approvals %}
+  <div class="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-orange-100 flex items-center justify-between">
+      <h3 class="text-base font-semibold text-slate-800 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span>
+        Returns Awaiting Your Confirmation
+      </h3>
+      <a href="{% url 'borrowing:return_queue' %}" class="text-xs text-brand-600 hover:underline font-medium">View all</a>
+    </div>
+    <div class="divide-y divide-slate-100">
+      {% for borrow in return_approvals %}
+      <div class="px-5 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-slate-800 truncate">{{ borrow.item }}</p>
+          <p class="text-xs text-slate-500 mt-0.5">Returned by {{ borrow.borrower.full_name }} &mdash; condition: {{ borrow.return_condition }}</p>
+        </div>
+        <a href="{% url 'borrowing:return_confirm' borrow.pk %}" class="flex-shrink-0 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Confirm</a>
+      </div>
+      {% endfor %}
+      {% for approval in kit_item_approvals %}
+      <div class="px-5 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-slate-800 truncate">{{ approval.equipment.name }} <span class="text-xs text-slate-400">(in kit {{ approval.borrow_request.kit.name }})</span></p>
+          <p class="text-xs text-slate-500 mt-0.5">Returned by {{ approval.borrow_request.borrower.full_name }}</p>
+        </div>
+        <a href="{% url 'borrowing:kit_item_confirm' approval.pk %}" class="flex-shrink-0 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700">Confirm</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ── Bottom Row: Recent Notifications + Quick Actions ── -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

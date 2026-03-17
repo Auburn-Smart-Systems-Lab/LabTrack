@@ -9,8 +9,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from apps.activity.utils import log_activity
-from apps.borrowing.forms import BorrowRequestForm, ReturnForm
-from apps.borrowing.models import BorrowRequest
+from apps.borrowing.forms import BorrowRequestForm, BulkBorrowForm, ReturnForm
+from apps.borrowing.models import BorrowRequest, KitItemReturnApproval
+from apps.equipment.models import Equipment
 from apps.notifications.utils import notify
 from apps.reservations.models import WaitlistEntry
 
@@ -19,12 +20,15 @@ def _is_admin(user):
     return user.is_authenticated and user.role == 'ADMIN'
 
 
+# ---------------------------------------------------------------------------
+# List
+# ---------------------------------------------------------------------------
+
 @login_required
 def borrow_list_view(request):
     """Paginated list of borrow requests.
 
-    Members see only their own requests; admins see all.
-    Supports optional ?status= filter.
+    Members see only their own; admins see all. Supports ?status= filter.
     """
     status_filter = request.GET.get('status', '')
 
@@ -37,8 +41,7 @@ def borrow_list_view(request):
             'equipment', 'kit', 'project', 'approved_by'
         )
 
-    # Compute counts from the unfiltered queryset for badges
-    pending_count = qs.filter(status='PENDING').count()
+    pending_count = qs.filter(status='RETURN_PENDING').count()
     overdue_count = qs.filter(
         status__in=['APPROVED', 'ACTIVE'], due_date__lt=date.today()
     ).count()
@@ -61,18 +64,18 @@ def borrow_list_view(request):
     })
 
 
+# ---------------------------------------------------------------------------
+# Create (single)
+# ---------------------------------------------------------------------------
+
 @login_required
 def borrow_request_create_view(request):
-    """Create a new borrow request.
-
-    If ?equipment_id= is supplied in the GET params the form is pre-populated.
-    """
+    """Create a borrow request — auto-approved immediately, no admin sign-off needed."""
     initial = {}
-    equipment_id = request.GET.get('equipment_id')
+    equipment_id = request.GET.get('equipment_id') or request.GET.get('equipment')
     if equipment_id:
-        from apps.equipment.models import Equipment
         try:
-            initial['equipment'] = Equipment.objects.get(pk=equipment_id)
+            initial['equipment'] = Equipment.objects.get(pk=equipment_id, is_active=True)
         except Equipment.DoesNotExist:
             pass
 
@@ -81,14 +84,24 @@ def borrow_request_create_view(request):
         if form.is_valid():
             borrow = form.save(commit=False)
             borrow.borrower = request.user
-            borrow.status = 'PENDING'
+            borrow.status = 'APPROVED'
+            borrow.approved_by = None
             borrow.save()
+
+            # Mark the item as BORROWED immediately.
+            if borrow.equipment:
+                borrow.equipment.status = 'BORROWED'
+                borrow.equipment.save(update_fields=['status'])
+            if borrow.kit:
+                for kit_item in borrow.kit.items.select_related('equipment'):
+                    kit_item.equipment.status = 'BORROWED'
+                    kit_item.equipment.save(update_fields=['status'])
 
             log_activity(
                 actor=request.user,
-                action='BORROW_REQUESTED',
+                action='BORROW_CREATED',
                 description=(
-                    f'{request.user.username} requested to borrow '
+                    f'{request.user.username} borrowed '
                     f'{borrow.item} (due {borrow.due_date})'
                 ),
                 content_type_label='borrowrequest',
@@ -97,13 +110,106 @@ def borrow_request_create_view(request):
                 request=request,
             )
 
-            messages.success(request, 'Borrow request submitted successfully.')
+            messages.success(request, f'You are now borrowing {borrow.item}. Due back by {borrow.due_date}.')
             return redirect('borrowing:detail', pk=borrow.pk)
     else:
         form = BorrowRequestForm(initial=initial)
 
     return render(request, 'borrowing/borrow_request_form.html', {'form': form})
 
+
+# ---------------------------------------------------------------------------
+# Bulk create
+# ---------------------------------------------------------------------------
+
+@login_required
+def borrow_bulk_create_view(request):
+    """Borrow multiple equipment items at once."""
+    if request.method == 'POST':
+        # Distinguish between the selection step (equipment_ids only) and
+        # the final confirmation step (has purpose + due_date too).
+        equipment_ids = request.POST.getlist('equipment_ids')
+        if not equipment_ids:
+            messages.error(request, 'No items selected.')
+            return redirect('equipment:list')
+
+        items = Equipment.objects.filter(
+            pk__in=equipment_ids, is_active=True, status='AVAILABLE'
+        )
+        if not items.exists():
+            messages.error(request, 'None of the selected items are available.')
+            return redirect('equipment:list')
+
+        form = BulkBorrowForm(request.POST)
+        if form.is_valid():
+            purpose = form.cleaned_data['purpose']
+            due_date = form.cleaned_data['due_date']
+            project = form.cleaned_data.get('project')
+
+            created = []
+            for item in items:
+                borrow = BorrowRequest.objects.create(
+                    borrower=request.user,
+                    equipment=item,
+                    project=project,
+                    purpose=purpose,
+                    due_date=due_date,
+                    status='APPROVED',
+                )
+                item.status = 'BORROWED'
+                item.save(update_fields=['status'])
+                log_activity(
+                    actor=request.user,
+                    action='BORROW_CREATED',
+                    description=f'{request.user.username} borrowed {item} (due {due_date})',
+                    content_type_label='borrowrequest',
+                    object_id=borrow.pk,
+                    object_repr=str(borrow),
+                    request=request,
+                )
+                created.append(item.name)
+
+            messages.success(
+                request,
+                f'Borrowed {len(created)} item(s): {", ".join(created)}. Due back by {due_date}.'
+            )
+            return redirect('borrowing:list')
+
+        # Form invalid — re-show confirmation page with errors
+        items = Equipment.objects.filter(
+            pk__in=equipment_ids, is_active=True, status='AVAILABLE'
+        )
+        return render(request, 'borrowing/borrow_bulk_form.html', {
+            'form': form,
+            'items': items,
+            'equipment_ids': equipment_ids,
+        })
+
+    else:
+        equipment_ids = request.GET.getlist('ids')
+        if not equipment_ids:
+            messages.error(request, 'No items selected.')
+            return redirect('equipment:list')
+
+        items = Equipment.objects.filter(
+            pk__in=equipment_ids, is_active=True, status='AVAILABLE'
+        )
+        unavailable = Equipment.objects.filter(
+            pk__in=equipment_ids
+        ).exclude(is_active=True, status='AVAILABLE')
+
+        form = BulkBorrowForm()
+        return render(request, 'borrowing/borrow_bulk_form.html', {
+            'form': form,
+            'items': items,
+            'unavailable': unavailable,
+            'equipment_ids': equipment_ids,
+        })
+
+
+# ---------------------------------------------------------------------------
+# Detail
+# ---------------------------------------------------------------------------
 
 @login_required
 def borrow_detail_view(request, pk):
@@ -115,7 +221,6 @@ def borrow_detail_view(request, pk):
         pk=pk,
     )
 
-    # Members can only see their own requests.
     if not _is_admin(request.user) and borrow.borrower != request.user:
         messages.error(request, 'You do not have permission to view this request.')
         return redirect('borrowing:list')
@@ -123,113 +228,23 @@ def borrow_detail_view(request, pk):
     return render(request, 'borrowing/borrow_detail.html', {'borrow': borrow})
 
 
-@login_required
-def borrow_approve_view(request, pk):
-    """Admin only: approve a PENDING borrow request."""
-    if not _is_admin(request.user):
-        messages.error(request, 'Only admins can approve borrow requests.')
-        return redirect('borrowing:list')
-
-    borrow = get_object_or_404(BorrowRequest, pk=pk, status='PENDING')
-
-    if request.method == 'POST':
-        borrow.status = 'APPROVED'
-        borrow.approved_by = request.user
-        borrow.approved_date = timezone.now()
-
-        # Mark equipment as BORROWED.
-        if borrow.equipment:
-            borrow.equipment.status = 'BORROWED'
-            borrow.equipment.save(update_fields=['status'])
-
-        # Mark all kit equipment as BORROWED.
-        if borrow.kit:
-            for item in borrow.kit.items.select_related('equipment'):
-                item.equipment.status = 'BORROWED'
-                item.equipment.save(update_fields=['status'])
-
-        borrow.save()
-
-        notify(
-            recipient=borrow.borrower,
-            title='Borrow Request Approved',
-            message=(
-                f'Your request to borrow {borrow.item} has been approved. '
-                f'Please pick it up before {borrow.due_date}.'
-            ),
-            level='success',
-        )
-
-        log_activity(
-            actor=request.user,
-            action='BORROW_APPROVED',
-            description=f'{request.user.username} approved borrow request #{borrow.pk}',
-            content_type_label='borrowrequest',
-            object_id=borrow.pk,
-            object_repr=str(borrow),
-            request=request,
-        )
-
-        messages.success(request, 'Borrow request approved.')
-        return redirect('borrowing:detail', pk=borrow.pk)
-
-    return render(request, 'borrowing/borrow_confirm_approve.html', {'borrow': borrow})
-
-
-@login_required
-def borrow_reject_view(request, pk):
-    """Admin only: reject a PENDING borrow request."""
-    if not _is_admin(request.user):
-        messages.error(request, 'Only admins can reject borrow requests.')
-        return redirect('borrowing:list')
-
-    borrow = get_object_or_404(BorrowRequest, pk=pk, status='PENDING')
-
-    if request.method == 'POST':
-        borrow.status = 'REJECTED'
-        borrow.save()
-
-        notify(
-            recipient=borrow.borrower,
-            title='Borrow Request Rejected',
-            message=f'Your request to borrow {borrow.item} has been rejected.',
-            level='warning',
-        )
-
-        log_activity(
-            actor=request.user,
-            action='BORROW_REJECTED',
-            description=f'{request.user.username} rejected borrow request #{borrow.pk}',
-            content_type_label='borrowrequest',
-            object_id=borrow.pk,
-            object_repr=str(borrow),
-            request=request,
-        )
-
-        messages.success(request, 'Borrow request rejected.')
-        return redirect('borrowing:detail', pk=borrow.pk)
-
-    return render(request, 'borrowing/borrow_confirm_reject.html', {'borrow': borrow})
-
+# ---------------------------------------------------------------------------
+# Return (borrower submits) → Return confirm (admin approves)
+# ---------------------------------------------------------------------------
 
 @login_required
 def borrow_return_view(request, pk):
-    """Record the return of a borrowed item.
-
-    Accessible by the original borrower or an admin.
-    After processing the return, checks the waitlist and notifies the next person.
-    """
+    """Borrower submits the return form — status goes to RETURN_PENDING for admin confirmation."""
     borrow = get_object_or_404(
         BorrowRequest.objects.select_related('borrower', 'equipment', 'kit'),
         pk=pk,
     )
 
-    # Permission check.
-    if not _is_admin(request.user) and borrow.borrower != request.user:
-        messages.error(request, 'You do not have permission to return this item.')
+    # Only the original borrower can submit a return.
+    if borrow.borrower != request.user:
+        messages.error(request, 'Only the borrower can submit a return.')
         return redirect('borrowing:list')
 
-    # Only APPROVED or ACTIVE borrows can be returned.
     if borrow.status not in ('APPROVED', 'ACTIVE'):
         messages.error(request, 'This borrow request cannot be returned in its current state.')
         return redirect('borrowing:detail', pk=borrow.pk)
@@ -237,34 +252,17 @@ def borrow_return_view(request, pk):
     if request.method == 'POST':
         form = ReturnForm(request.POST)
         if form.is_valid():
-            borrow.status = 'RETURNED'
+            borrow.status = 'RETURN_PENDING'
             borrow.returned_date = timezone.now()
             borrow.return_condition = form.cleaned_data['return_condition']
             borrow.notes = form.cleaned_data.get('notes', '')
             borrow.save()
 
-            # Mark equipment as AVAILABLE again.
-            if borrow.equipment:
-                borrow.equipment.status = 'AVAILABLE'
-                borrow.equipment.save(update_fields=['status'])
-
-            if borrow.kit:
-                for item in borrow.kit.items.select_related('equipment'):
-                    item.equipment.status = 'AVAILABLE'
-                    item.equipment.save(update_fields=['status'])
-
-            notify(
-                recipient=borrow.borrower,
-                title='Item Returned Successfully',
-                message=f'Your return of {borrow.item} has been recorded. Thank you!',
-                level='info',
-            )
-
             log_activity(
                 actor=request.user,
-                action='BORROW_RETURNED',
+                action='BORROW_RETURN_SUBMITTED',
                 description=(
-                    f'{request.user.username} returned {borrow.item} '
+                    f'{request.user.username} submitted return for {borrow.item} '
                     f'(condition: {borrow.return_condition})'
                 ),
                 content_type_label='borrowrequest',
@@ -273,33 +271,44 @@ def borrow_return_view(request, pk):
                 request=request,
             )
 
-            # Notify next person on the waitlist (if any).
-            waitlist_qs = None
             if borrow.equipment:
-                waitlist_qs = WaitlistEntry.objects.filter(
-                    equipment=borrow.equipment, notified=False
-                ).order_by('position', 'created_at')
-            elif borrow.kit:
-                waitlist_qs = WaitlistEntry.objects.filter(
-                    kit=borrow.kit, notified=False
-                ).order_by('position', 'created_at')
-
-            if waitlist_qs is not None:
-                next_entry = waitlist_qs.first()
-                if next_entry:
+                # Single equipment — notify owner to confirm.
+                owner = borrow.equipment.owner
+                if owner and owner != request.user:
                     notify(
-                        recipient=next_entry.user,
-                        title='Item Now Available',
+                        recipient=owner,
+                        title='Return Awaiting Your Confirmation',
                         message=(
-                            f'{borrow.item} is now available. '
-                            'You are next on the waitlist — act quickly!'
+                            f'{request.user.full_name or request.user.username} has returned '
+                            f'"{borrow.item}". Please confirm the return.'
                         ),
-                        level='success',
+                        level='info',
                     )
-                    next_entry.notified = True
-                    next_entry.save(update_fields=['notified'])
+            elif borrow.kit:
+                # Kit — create per-owner approval records and notify each distinct owner.
+                notified_owners = set()
+                for kit_item in borrow.kit.items.select_related('equipment__owner'):
+                    owner = kit_item.equipment.owner
+                    if not owner:
+                        continue
+                    KitItemReturnApproval.objects.get_or_create(
+                        borrow_request=borrow,
+                        equipment=kit_item.equipment,
+                        defaults={'owner': owner},
+                    )
+                    if owner.pk not in notified_owners and owner != request.user:
+                        notify(
+                            recipient=owner,
+                            title='Kit Return Awaiting Your Confirmation',
+                            message=(
+                                f'{request.user.full_name or request.user.username} has returned '
+                                f'kit "{borrow.kit}". Please confirm your items.'
+                            ),
+                            level='info',
+                        )
+                        notified_owners.add(owner.pk)
 
-            messages.success(request, 'Return recorded successfully.')
+            messages.success(request, 'Return submitted. Waiting for owner confirmation.')
             return redirect('borrowing:detail', pk=borrow.pk)
     else:
         form = ReturnForm()
@@ -309,6 +318,163 @@ def borrow_return_view(request, pk):
         'borrow': borrow,
     })
 
+
+@login_required
+def borrow_return_confirm_view(request, pk):
+    """Equipment owner confirms a pending return for a single-equipment borrow."""
+    borrow = get_object_or_404(
+        BorrowRequest.objects.select_related('borrower', 'equipment', 'kit'),
+        pk=pk,
+        status='RETURN_PENDING',
+    )
+
+    if not borrow.equipment:
+        messages.error(request, 'Use the kit item confirmation page for kit returns.')
+        return redirect('borrowing:detail', pk=borrow.pk)
+
+    if request.user != borrow.equipment.owner:
+        messages.error(request, 'Only the equipment owner can confirm this return.')
+        return redirect('borrowing:detail', pk=borrow.pk)
+
+    if request.method == 'POST':
+        borrow.status = 'RETURNED'
+        borrow.save()
+
+        borrow.equipment.status = 'AVAILABLE'
+        borrow.equipment.save(update_fields=['status'])
+
+        notify(
+            recipient=borrow.borrower,
+            title='Return Confirmed',
+            message=f'Your return of {borrow.item} has been confirmed. Thank you!',
+            level='success',
+        )
+
+        waitlist_qs = WaitlistEntry.objects.filter(
+            equipment=borrow.equipment, notified=False
+        ).order_by('position', 'created_at')
+        next_entry = waitlist_qs.first()
+        if next_entry:
+            notify(
+                recipient=next_entry.user,
+                title='Item Now Available',
+                message=f'{borrow.item} is now available. You are next on the waitlist!',
+                level='success',
+            )
+            next_entry.notified = True
+            next_entry.save(update_fields=['notified'])
+
+        log_activity(
+            actor=request.user,
+            action='BORROW_RETURNED',
+            description=f'{request.user.username} confirmed return of {borrow.item}',
+            content_type_label='borrowrequest',
+            object_id=borrow.pk,
+            object_repr=str(borrow),
+            request=request,
+        )
+
+        messages.success(request, f'Return of {borrow.item} confirmed.')
+        return redirect('borrowing:detail', pk=borrow.pk)
+
+    return render(request, 'borrowing/borrow_confirm_return.html', {'borrow': borrow})
+
+
+@login_required
+def kit_item_return_confirm_view(request, approval_pk):
+    """Equipment owner confirms their item within a kit return.
+
+    When all items in the kit are confirmed, the borrow is marked RETURNED
+    and all equipment freed.
+    """
+    approval = get_object_or_404(
+        KitItemReturnApproval.objects.select_related(
+            'borrow_request__borrower', 'borrow_request__kit', 'equipment', 'owner'
+        ),
+        pk=approval_pk,
+    )
+
+    if request.user != approval.owner:
+        messages.error(request, 'Only the equipment owner can confirm this item.')
+        return redirect('borrowing:detail', pk=approval.borrow_request.pk)
+
+    if approval.is_confirmed:
+        messages.info(request, 'You have already confirmed this item.')
+        return redirect('borrowing:detail', pk=approval.borrow_request.pk)
+
+    borrow = approval.borrow_request
+    if borrow.status != 'RETURN_PENDING':
+        messages.error(request, 'This return is no longer pending.')
+        return redirect('borrowing:detail', pk=borrow.pk)
+
+    if request.method == 'POST':
+        from django.utils import timezone as tz
+        approval.confirmed_by = request.user
+        approval.confirmed_at = tz.now()
+        approval.save()
+
+        approval.equipment.status = 'AVAILABLE'
+        approval.equipment.save(update_fields=['status'])
+
+        log_activity(
+            actor=request.user,
+            action='BORROW_RETURNED',
+            description=(
+                f'{request.user.username} confirmed return of '
+                f'"{approval.equipment.name}" from kit "{borrow.kit}"'
+            ),
+            content_type_label='borrowrequest',
+            object_id=borrow.pk,
+            object_repr=str(borrow),
+            request=request,
+        )
+
+        # Check if all items are now confirmed.
+        all_confirmed = not borrow.kit_item_approvals.filter(confirmed_by__isnull=True).exists()
+        if all_confirmed:
+            borrow.status = 'RETURNED'
+            borrow.save()
+
+            notify(
+                recipient=borrow.borrower,
+                title='Kit Return Confirmed',
+                message=f'Your return of kit "{borrow.kit}" has been fully confirmed. Thank you!',
+                level='success',
+            )
+
+            # Notify next on waitlist.
+            next_entry = WaitlistEntry.objects.filter(
+                kit=borrow.kit, notified=False
+            ).order_by('position', 'created_at').first()
+            if next_entry:
+                notify(
+                    recipient=next_entry.user,
+                    title='Kit Now Available',
+                    message=f'Kit "{borrow.kit}" is now available. You are next on the waitlist!',
+                    level='success',
+                )
+                next_entry.notified = True
+                next_entry.save(update_fields=['notified'])
+
+            messages.success(request, f'All items confirmed. Kit "{borrow.kit}" return completed.')
+        else:
+            remaining = borrow.kit_item_approvals.filter(confirmed_by__isnull=True).count()
+            messages.success(
+                request,
+                f'"{approval.equipment.name}" confirmed. {remaining} item(s) still awaiting confirmation.'
+            )
+
+        return redirect('borrowing:detail', pk=borrow.pk)
+
+    return render(request, 'borrowing/kit_item_return_confirm.html', {
+        'approval': approval,
+        'borrow': borrow,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Overdue & Return queue
+# ---------------------------------------------------------------------------
 
 @login_required
 def overdue_list_view(request):
@@ -331,19 +497,22 @@ def overdue_list_view(request):
 
 
 @login_required
-def approval_queue_view(request):
-    """Admin only: list all PENDING borrow requests awaiting approval."""
-    if not _is_admin(request.user):
-        messages.error(request, 'Only admins can view the approval queue.')
-        return redirect('borrowing:list')
+def return_queue_view(request):
+    """List pending returns the current user needs to confirm as equipment owner."""
+    # Single-equipment returns owned by this user
+    equipment_returns = BorrowRequest.objects.filter(
+        status='RETURN_PENDING',
+        equipment__owner=request.user,
+    ).select_related('borrower', 'equipment', 'project').order_by('returned_date')
 
-    qs = BorrowRequest.objects.filter(status='PENDING').select_related(
-        'borrower', 'equipment', 'kit', 'project'
-    ).order_by('requested_date')
+    # Kit item approvals assigned to this user
+    kit_approvals = KitItemReturnApproval.objects.filter(
+        owner=request.user,
+        confirmed_by__isnull=True,
+        borrow_request__status='RETURN_PENDING',
+    ).select_related('borrow_request__borrower', 'borrow_request__kit', 'equipment')
 
-    paginator = Paginator(qs, 20)
-    pending_borrows = paginator.get_page(request.GET.get('page'))
-
-    return render(request, 'borrowing/approval_queue.html', {
-        'pending_borrows': pending_borrows,
+    return render(request, 'borrowing/return_queue.html', {
+        'equipment_returns': equipment_returns,
+        'kit_approvals': kit_approvals,
     })
