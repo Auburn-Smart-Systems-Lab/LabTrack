@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.activity.utils import log_activity
@@ -78,6 +79,13 @@ def borrow_request_create_view(request):
             initial['equipment'] = Equipment.objects.get(pk=equipment_id, is_active=True)
         except Equipment.DoesNotExist:
             pass
+    kit_id = request.GET.get('kit_id') or request.GET.get('kit')
+    if kit_id:
+        from apps.kits.models import Kit
+        try:
+            initial['kit'] = Kit.objects.get(pk=kit_id, is_active=True)
+        except Kit.DoesNotExist:
+            pass
 
     if request.method == 'POST':
         form = BorrowRequestForm(request.POST)
@@ -96,19 +104,6 @@ def borrow_request_create_view(request):
                 for kit_item in borrow.kit.items.select_related('equipment'):
                     kit_item.equipment.status = 'BORROWED'
                     kit_item.equipment.save(update_fields=['status'])
-
-            log_activity(
-                actor=request.user,
-                action='BORROW_CREATED',
-                description=(
-                    f'{request.user.username} borrowed '
-                    f'{borrow.item} (due {borrow.due_date})'
-                ),
-                content_type_label='borrowrequest',
-                object_id=borrow.pk,
-                object_repr=str(borrow),
-                request=request,
-            )
 
             messages.success(request, f'You are now borrowing {borrow.item}. Due back by {borrow.due_date}.')
             return redirect('borrowing:detail', pk=borrow.pk)
@@ -283,7 +278,7 @@ def borrow_return_view(request, pk):
                             f'"{borrow.item}". Please confirm the return.'
                         ),
                         level='info',
-                        link='/borrowing/returns/',
+                        link=reverse('borrowing:return_queue'),
                     )
             elif borrow.kit:
                 # Kit — create per-owner approval records and notify each distinct owner.
@@ -306,7 +301,7 @@ def borrow_return_view(request, pk):
                                 f'kit "{borrow.kit}". Please confirm your items.'
                             ),
                             level='info',
-                            link='/borrowing/returns/',
+                            link=reverse('borrowing:return_queue'),
                         )
                         notified_owners.add(owner.pk)
 
@@ -350,7 +345,7 @@ def borrow_return_confirm_view(request, pk):
             title='Return Confirmed',
             message=f'Your return of {borrow.item} has been confirmed. Thank you!',
             level='success',
-            link=f'/borrowing/{borrow.pk}/',
+            link=reverse('borrowing:detail', args=[borrow.pk]),
         )
 
         waitlist_qs = WaitlistEntry.objects.filter(
@@ -363,7 +358,7 @@ def borrow_return_confirm_view(request, pk):
                 title='Item Now Available',
                 message=f'{borrow.item} is now available. You are next on the waitlist!',
                 level='success',
-                link=f'/borrowing/create/',
+                link=reverse('borrowing:create'),
             )
             next_entry.notified = True
             next_entry.save(update_fields=['notified'])
@@ -444,7 +439,7 @@ def kit_item_return_confirm_view(request, approval_pk):
                 title='Kit Return Confirmed',
                 message=f'Your return of kit "{borrow.kit}" has been fully confirmed. Thank you!',
                 level='success',
-                link=f'/borrowing/{borrow.pk}/',
+                link=reverse('borrowing:detail', args=[borrow.pk]),
             )
 
             # Notify next on waitlist.
@@ -457,7 +452,7 @@ def kit_item_return_confirm_view(request, approval_pk):
                     title='Kit Now Available',
                     message=f'Kit "{borrow.kit}" is now available. You are next on the waitlist!',
                     level='success',
-                    link=f'/kits/{borrow.kit.pk}/',
+                    link=reverse('kits:detail', args=[borrow.kit.pk]),
                 )
                 next_entry.notified = True
                 next_entry.save(update_fields=['notified'])

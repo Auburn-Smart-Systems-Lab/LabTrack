@@ -134,10 +134,15 @@ if _DB_HOST:
         }
     }
 else:
+    _SQLITE_DIR = Path(config('SQLITE_DIR', default=str(BASE_DIR)))
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'NAME': _SQLITE_DIR / 'db.sqlite3',
+            'OPTIONS': {
+                'timeout': 20,
+                'init_command': 'PRAGMA journal_mode=WAL;',
+            },
         }
     }
 

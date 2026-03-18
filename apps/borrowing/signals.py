@@ -7,6 +7,7 @@ Signal handlers for the borrowing app.
 
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
+from django.urls import reverse
 
 from apps.borrowing.models import BorrowRequest
 
@@ -45,7 +46,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
                 f"'{item_name}'. Please review."
             ),
             level='info',
-            link=f'/borrowing/{instance.pk}/',
+            link=reverse('borrowing:detail', args=[instance.pk]),
         )
         log_activity(
             actor=instance.borrower,
@@ -67,7 +68,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
             title='Borrow Request Approved',
             message=f"Your request to borrow '{item_name}' has been approved.",
             level='success',
-            link=f'/borrowing/{instance.pk}/',
+            link=reverse('borrowing:detail', args=[instance.pk]),
         )
         log_activity(
             actor=instance.approved_by,
@@ -87,7 +88,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
             title='Borrow Request Rejected',
             message=f"Your request to borrow '{item_name}' has been rejected.",
             level='error',
-            link=f'/borrowing/{instance.pk}/',
+            link=reverse('borrowing:detail', args=[instance.pk]),
         )
         log_activity(
             actor=instance.approved_by,
@@ -107,7 +108,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
             title='Item Returned',
             message=f"'{item_name}' has been marked as returned. Thank you!",
             level='success',
-            link=f'/borrowing/{instance.pk}/',
+            link=reverse('borrowing:detail', args=[instance.pk]),
         )
         log_activity(
             actor=instance.borrower,
@@ -127,7 +128,7 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
                 f"Please return it as soon as possible."
             ),
             level='warning',
-            link=f'/borrowing/{instance.pk}/',
+            link=reverse('borrowing:detail', args=[instance.pk]),
         )
         notify_admins(
             title='Overdue Borrow Alert',
@@ -136,10 +137,10 @@ def handle_borrow_request_status_change(sender, instance, created, **kwargs):
                 f"is now overdue (due: {instance.due_date})."
             ),
             level='warning',
-            link=f'/borrowing/{instance.pk}/',
+            link=reverse('borrowing:detail', args=[instance.pk]),
         )
         log_activity(
-            actor=None,
+            actor=instance.borrower,
             action='BORROW_OVERDUE',
             description=(
                 f"Borrow of '{item_name}' by {instance.borrower.username} "

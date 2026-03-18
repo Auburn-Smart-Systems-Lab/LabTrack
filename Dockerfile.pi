@@ -1,0 +1,29 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DJANGO_SETTINGS_MODULE=config.settings \
+    DEBUG=False \
+    DB_HOST="" \
+    GUNICORN_WORKERS=2 \
+    GUNICORN_TIMEOUT=120 \
+    GUNICORN_LOG_LEVEL=info
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir --upgrade pip
+
+COPY requirements.txt .
+# Install everything except psycopg2 (not needed with SQLite)
+RUN grep -iv psycopg2 requirements.txt | pip install --no-cache-dir -r /dev/stdin
+
+COPY . .
+
+RUN mkdir -p /app/staticfiles /app/media /app/static /app/db
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 8000
+
+ENTRYPOINT ["/entrypoint.sh"]

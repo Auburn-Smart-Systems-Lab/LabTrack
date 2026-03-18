@@ -20,7 +20,10 @@ class ActivityLog(models.Model):
         ('BORROW_OVERDUE', 'Borrow Overdue'),
         # Reservations
         ('RESERVATION_CREATED', 'Reservation Created'),
+        ('RESERVATION_CONFIRMED', 'Reservation Confirmed'),
         ('RESERVATION_CANCELLED', 'Reservation Cancelled'),
+        ('RESERVATION_RETURN_SUBMITTED', 'Reservation Return Submitted'),
+        ('RESERVATION_RETURN_CONFIRMED', 'Reservation Return Confirmed'),
         # Consumables
         ('CONSUMABLE_USED', 'Consumable Used'),
         ('CONSUMABLE_RESTOCKED', 'Consumable Restocked'),
@@ -33,6 +36,9 @@ class ActivityLog(models.Model):
         # Users
         ('USER_REGISTERED', 'User Registered'),
         ('USER_ROLE_CHANGED', 'User Role Changed'),
+        ('USER_STATUS_CHANGED', 'User Status Changed'),
+        # Borrowing (extended)
+        ('BORROW_CREATED', 'Borrow Created'),
         # Kits
         ('KIT_CREATED', 'Kit Created'),
         ('KIT_UPDATED', 'Kit Updated'),

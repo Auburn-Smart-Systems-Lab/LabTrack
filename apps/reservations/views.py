@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from apps.activity.utils import log_activity
@@ -19,18 +20,31 @@ def _is_admin(user):
 
 @login_required
 def reservation_list_view(request):
-    """List reservations: members see their own; admins see all."""
+    """List reservations: members see their own; admins see all. Supports ?status=, ?from_date=, ?to_date= filters."""
     if _is_admin(request.user):
-        reservations = Reservation.objects.select_related(
-            'requester', 'equipment', 'kit'
-        )
+        qs = Reservation.objects.select_related('requester', 'equipment', 'kit')
     else:
-        reservations = Reservation.objects.filter(
+        qs = Reservation.objects.filter(
             requester=request.user
         ).select_related('equipment', 'kit')
 
+    status_filter = request.GET.get('status', '').strip()
+    from_date = request.GET.get('from_date', '').strip()
+    to_date = request.GET.get('to_date', '').strip()
+
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if from_date:
+        qs = qs.filter(start_date__gte=from_date)
+    if to_date:
+        qs = qs.filter(end_date__lte=to_date)
+
     return render(request, 'reservations/reservation_list.html', {
-        'reservations': reservations,
+        'reservations': qs,
+        'status_filter': status_filter,
+        'from_date': from_date,
+        'to_date': to_date,
+        'status_choices': Reservation.STATUS_CHOICES,
     })
 
 
@@ -177,7 +191,7 @@ def reservation_cancel_view(request, pk):
                         'You are next on the waitlist — you may now reserve it.'
                     ),
                     level='info',
-                    link='/reservations/create/',
+                    link=reverse('reservations:create'),
                 )
                 next_entry.notified = True
                 next_entry.save(update_fields=['notified'])
@@ -275,7 +289,7 @@ def reservation_return_view(request, pk):
 
             log_activity(
                 actor=request.user,
-                action='RESERVATION_CANCELLED',
+                action='RESERVATION_RETURN_SUBMITTED',
                 description=(
                     f'{request.user.username} submitted return for reservation '
                     f'#{reservation.pk} ({reservation.equipment or reservation.kit})'
@@ -353,7 +367,7 @@ def reservation_return_confirm_view(request, pk):
 
         log_activity(
             actor=request.user,
-            action='RESERVATION_CONFIRMED',
+            action='RESERVATION_RETURN_CONFIRMED',
             description=(
                 f'{request.user.username} confirmed return for reservation '
                 f'#{reservation.pk} ({reservation.equipment or reservation.kit})'

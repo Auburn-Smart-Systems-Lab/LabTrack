@@ -16,7 +16,6 @@
       </div>
       {% if user.is_authenticated %}
       <div class="flex gap-2">
-        {% if user.is_admin %}
         <a href="{% url 'borrowing:return_queue' %}"
            class="inline-flex items-center px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium rounded-lg border border-amber-200 transition-colors duration-150">
           <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -27,6 +26,7 @@
           <span class="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">{{ pending_count }}</span>
           {% endif %}
         </a>
+        {% if user.is_admin %}
         <a href="{% url 'borrowing:overdue' %}"
            class="inline-flex items-center px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-sm font-medium rounded-lg border border-red-200 transition-colors duration-150">
           Overdue
@@ -158,21 +158,9 @@
                   <div class="flex items-center justify-end gap-2">
                     <a href="{% url 'borrowing:detail' borrow.pk %}"
                        class="text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors">View</a>
-                    {% if user.is_admin and borrow.status == 'PENDING' %}
-                    <form method="post" action="{% url 'borrowing:approve' borrow.pk %}" class="inline">
-                      {% csrf_token %}
-                      <button type="submit" class="text-xs text-green-600 hover:text-green-700 font-medium transition-colors">Approve</button>
-                    </form>
-                    <form method="post" action="{% url 'borrowing:reject' borrow.pk %}" class="inline">
-                      {% csrf_token %}
-                      <button type="submit" class="text-xs text-red-600 hover:text-red-700 font-medium transition-colors">Reject</button>
-                    </form>
-                    {% endif %}
-                    {% if borrow.status in 'ACTIVE,APPROVED' and borrow.borrower == user or user.is_admin %}
-                    {% if borrow.status == 'ACTIVE' or borrow.status == 'APPROVED' %}
+                    {% if borrow.borrower == user and borrow.status == 'APPROVED' or borrow.borrower == user and borrow.status == 'ACTIVE' %}
                     <a href="{% url 'borrowing:return' borrow.pk %}"
                        class="text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors">Return</a>
-                    {% endif %}
                     {% endif %}
                   </div>
                 </td>
