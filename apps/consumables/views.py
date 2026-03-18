@@ -9,7 +9,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from apps.activity.utils import log_activity
 from apps.consumables.forms import ConsumableForm, ConsumableUsageLogForm, RestockForm
 from apps.consumables.models import Consumable, ConsumableUsageLog
-from apps.notifications.utils import notify_admins
 
 
 @login_required
@@ -139,9 +138,11 @@ def log_usage_view(request, pk):
                 usage_log.used_by = request.user
                 usage_log.save()
 
-                # Deduct quantity
-                consumable.quantity -= usage_log.quantity_used
-                consumable.save(update_fields=['quantity', 'updated_at'])
+                # NOTE: quantity deduction and low-stock notification are handled
+                # by the post_save signal in consumables/signals.py.
+                pass
+
+            consumable.refresh_from_db()  # reflect signal-updated quantity
 
             log_activity(
                 actor=request.user,
@@ -155,19 +156,6 @@ def log_usage_view(request, pk):
                 object_repr=str(usage_log),
                 request=request,
             )
-
-            # Notify admins if now low stock
-            if consumable.is_low_stock:
-                notify_admins(
-                    title=f'Low Stock: {consumable.name}',
-                    message=(
-                        f'"{consumable.name}" is low on stock. '
-                        f'Current quantity: {consumable.quantity} {consumable.unit} '
-                        f'(threshold: {consumable.low_stock_threshold}).'
-                    ),
-                    level='warning',
-                    link=f'/consumables/{consumable.pk}/',
-                )
 
             messages.success(
                 request,

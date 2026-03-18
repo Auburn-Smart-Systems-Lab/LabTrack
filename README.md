@@ -1,5 +1,7 @@
 # LabTrack
 
+![CI](https://github.com/rafi9/LabTrack/actions/workflows/ci.yml/badge.svg)
+
 A full-featured lab equipment management system built with Django 4.2. LabTrack lets a lab track every piece of equipment it owns — from initial inventory through borrowing, reservations, incidents, and maintenance — with role-based access for admins and members.
 
 ---
@@ -10,6 +12,7 @@ A full-featured lab equipment management system built with Django 4.2. LabTrack 
 - [Tech Stack](#tech-stack)
 - [Quick Start (Docker)](#quick-start-docker)
 - [Local Development (no Docker)](#local-development-no-docker)
+- [Running Tests](#running-tests)
 - [Environment Variables](#environment-variables)
 - [Application Modules](#application-modules)
 - [User Roles](#user-roles)
@@ -182,6 +185,31 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
 Mounts source code into the container and uses Django's dev server — code changes reflect immediately without rebuilding.
+
+---
+
+## Running Tests
+
+The test suite covers all eight application modules (135 tests). Tests use SQLite in-memory — no extra services needed.
+
+```bash
+# Activate your virtual environment first
+source env/bin/activate          # Windows: env\Scripts\activate
+
+python manage.py test apps.accounts apps.notifications apps.borrowing \
+    apps.reservations apps.kits apps.incidents apps.equipment apps.consumables \
+    --verbosity=2
+```
+
+### CI
+
+Tests run automatically on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`). The badge at the top of this file reflects the latest run on the `master` branch.
+
+To check a specific run:
+
+```
+GitHub → Actions → CI
+```
 
 ---
 
