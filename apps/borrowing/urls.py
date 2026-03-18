@@ -1,6 +1,7 @@
 """URL patterns for the borrowing app."""
 
 from django.urls import path
+from django.views.generic import RedirectView
 
 from apps.borrowing import views
 
@@ -16,4 +17,6 @@ urlpatterns = [
     path('kit-item/<int:approval_pk>/confirm/', views.kit_item_return_confirm_view, name='kit_item_confirm'),
     path('overdue/', views.overdue_list_view, name='overdue'),
     path('returns/', views.return_queue_view, name='return_queue'),
+    # Legacy URL kept for old notification links stored in the database
+    path('return-queue/', RedirectView.as_view(pattern_name='borrowing:return_queue', permanent=True)),
 ]

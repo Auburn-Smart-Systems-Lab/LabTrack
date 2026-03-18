@@ -283,7 +283,7 @@ def borrow_return_view(request, pk):
                             f'"{borrow.item}". Please confirm the return.'
                         ),
                         level='info',
-                        link=f'/borrowing/return-queue/',
+                        link='/borrowing/returns/',
                     )
             elif borrow.kit:
                 # Kit — create per-owner approval records and notify each distinct owner.
@@ -306,7 +306,7 @@ def borrow_return_view(request, pk):
                                 f'kit "{borrow.kit}". Please confirm your items.'
                             ),
                             level='info',
-                            link=f'/borrowing/return-queue/',
+                            link='/borrowing/returns/',
                         )
                         notified_owners.add(owner.pk)
 

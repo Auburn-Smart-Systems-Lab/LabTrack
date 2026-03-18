@@ -278,7 +278,7 @@ Manages check-out and check-in.
 - **Return flow** — member submits return with condition (`Good`, `Damaged`, etc.) and notes; owner then confirms receipt
 - **Kit returns** — each distinct equipment owner inside the kit must confirm their own items via the return queue; only when all confirm does the borrow close
 - **Overdue tracking** — items past their due date are flagged `OVERDUE`; borrower and admins notified
-- **Return queue** (`/borrowing/return-queue/`) — owners see all pending returns awaiting their confirmation, split between single-item returns and kit items
+- **Return queue** (`/borrowing/returns/`) — owners see all pending returns awaiting their confirmation, split between single-item returns and kit items
 
 Borrow status lifecycle:
 ```
