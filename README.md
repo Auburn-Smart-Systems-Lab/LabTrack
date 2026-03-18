@@ -1,6 +1,6 @@
 # LabTrack
 
-![CI](https://github.com/rafi9/LabTrack/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Auburn-Smart-Systems-Lab/LabTrack/actions/workflows/ci.yml/badge.svg)
 
 A full-featured lab equipment management system built with Django 4.2. LabTrack lets a lab track every piece of equipment it owns — from initial inventory through borrowing, reservations, incidents, and maintenance — with role-based access for admins and members.
 
