@@ -118,7 +118,7 @@ class ProfileUpdateForm(forms.ModelForm):
 
     class Meta:
         model = UserProfile
-        fields = ('phone', 'department', 'student_id', 'bio', 'avatar')
+        fields = ('phone', 'department', 'student_id', 'bio', 'avatar', 'email_notifications')
         widgets = {
             'phone': forms.TextInput(attrs={
                 'class': 'form-input',

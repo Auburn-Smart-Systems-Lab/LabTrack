@@ -80,6 +80,10 @@ class UserProfile(models.Model):
     student_id = models.CharField(max_length=50, blank=True)
     avatar = models.ImageField(upload_to='profiles/', blank=True, null=True)
     bio = models.TextField(blank=True)
+    email_notifications = models.BooleanField(
+        default=True,
+        help_text='Receive email notifications for important events.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

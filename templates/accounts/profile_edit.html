@@ -231,6 +231,34 @@
       </div>
     </div>
 
+    <!-- ====== Preferences ====== -->
+    <div class="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6">
+      <h3 class="text-base font-bold text-slate-800 mb-5 flex items-center gap-2">
+        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        Notification Preferences
+      </h3>
+      <div class="flex items-start gap-3 p-4 bg-slate-50 rounded-xl">
+        <input type="checkbox"
+               name="{{ profile_form.email_notifications.html_name }}"
+               id="{{ profile_form.email_notifications.id_for_label }}"
+               {% if profile_form.email_notifications.value %}checked{% endif %}
+               class="mt-0.5 w-4 h-4 text-brand-600 border-slate-300 rounded focus:ring-brand-500">
+        <div>
+          <label for="{{ profile_form.email_notifications.id_for_label }}"
+                 class="text-sm font-semibold text-slate-700 cursor-pointer">
+            Email notifications
+          </label>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Receive an email when a borrow is approved/rejected, a return is confirmed,
+            an incident is assigned to you, or a reservation changes.
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- ====== Actions ====== -->
     <div class="flex flex-col-reverse sm:flex-row justify-end gap-3">
       <a href="{% url 'accounts:profile' %}"

@@ -22,7 +22,28 @@ FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=config.settings
+    DJANGO_SETTINGS_MODULE=config.settings \
+    # ── Runtime defaults (override via .env or docker-compose environment) ──────
+    DEBUG=False \
+    ALLOWED_HOSTS=localhost \
+    # Database — leave DB_HOST blank to use SQLite (dev only)
+    DB_HOST="" \
+    DB_PORT=5432 \
+    DB_NAME=labtrack \
+    DB_USER=labtrack \
+    # Redis / Celery
+    REDIS_URL=redis://redis:6379/0 \
+    # Email — set EMAIL_HOST_USER + EMAIL_HOST_PASSWORD to enable SMTP delivery
+    EMAIL_HOST=smtp.gmail.com \
+    EMAIL_PORT=587 \
+    EMAIL_HOST_USER="" \
+    EMAIL_HOST_PASSWORD="" \
+    DEFAULT_FROM_EMAIL=noreply@labtrack.local \
+    SITE_URL=http://localhost \
+    # Gunicorn
+    GUNICORN_WORKERS=3 \
+    GUNICORN_TIMEOUT=120 \
+    GUNICORN_LOG_LEVEL=info
 
 WORKDIR /app
 
